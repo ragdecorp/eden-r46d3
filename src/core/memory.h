@@ -371,6 +371,17 @@ public:
      */
     bool ReadBlockUnsafe(Common::ProcessAddress src_addr, void* dest_buffer, std::size_t size);
 
+    /**
+     * Reads a block only when every page is directly CPU-readable. Unlike ReadBlock(), this does
+     * not request GPU downloads; unlike ReadBlockUnsafe(), it refuses rasterizer-cached pages.
+     * This is intended for diagnostic memory searches where stale GPU-owned data should simply
+     * be skipped.
+     *
+     * @returns True when the complete block was copied, false when any page was unavailable or
+     *          owned by the rasterizer.
+     */
+    bool ReadBlockCpuOnly(Common::ProcessAddress src_addr, void* dest_buffer, std::size_t size);
+
     const u8* GetSpan(const VAddr src_addr, const std::size_t size) const;
     u8* GetSpan(const VAddr src_addr, const std::size_t size);
 

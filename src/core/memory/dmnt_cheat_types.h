@@ -34,4 +34,10 @@ struct CheatEntry {
     CheatDefinition definition{};
 };
 
+struct RuntimeMemoryFreeze {
+    u64 address{};
+    u64 value{};
+    u8 size{sizeof(s32)};
+};
+
 } // namespace Core::Memory

@@ -277,6 +277,11 @@ ResultStatus AppLoader_DeconstructedRomDirectory::ReadRomFS(FileSys::VirtualFile
     return ResultStatus::Success;
 }
 
+ResultStatus AppLoader_DeconstructedRomDirectory::ReadExeFS(FileSys::VirtualDir& out_dir) {
+    out_dir = dir != nullptr ? dir : file->GetContainingDirectory();
+    return out_dir != nullptr ? ResultStatus::Success : ResultStatus::ErrorNoExeFS;
+}
+
 ResultStatus AppLoader_DeconstructedRomDirectory::ReadIcon(std::vector<u8>& out_buffer) {
     if (icon_data.empty()) {
         return ResultStatus::ErrorNoIcon;

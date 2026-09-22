@@ -156,11 +156,27 @@ add_executable(yuzu
     debugger/controller.cpp
     debugger/controller.h
 
+    game/cheat_availability_manager.cpp
+    game/cheat_availability_manager.h
+      game/cheat_numeric_input_dialog.cpp
+      game/cheat_numeric_input_dialog.h
+      game/cheat_memory_scanner.cpp
+      game/cheat_memory_scanner.h
+      game/cheat_overlay_dialog.cpp
+    game/cheat_overlay_dialog.h
+    game/cheat_selection_dialog.cpp
+    game/cheat_selection_dialog.h
     game/game_list.cpp
     game/game_list.h
     game/game_list_p.h
     game/game_list_worker.cpp
     game/game_list_worker.h
+    game/game_metadata_manager.cpp
+    game/game_metadata_manager.h
+    game/game_update_manager.cpp
+    game/game_update_manager.h
+    game/trailer_player_dialog.cpp
+    game/trailer_player_dialog.h
     game/game_card.h
     game/game_card.cpp
 
@@ -446,6 +462,11 @@ endif()
 if (WIN32 AND NOT YUZU_USE_BUNDLED_QT)
     set(YUZU_EXE_DIR "$<TARGET_FILE_DIR:yuzu>")
     add_custom_command(TARGET yuzu POST_BUILD COMMAND ${WINDEPLOYQT_EXECUTABLE} "${YUZU_EXE_DIR}/eden.exe" --dir "${YUZU_EXE_DIR}" --libdir "${YUZU_EXE_DIR}" --plugindir "${YUZU_EXE_DIR}/plugins" --no-compiler-runtime --no-opengl-sw --no-system-d3d-compiler --no-translations --verbose 0)
+endif()
+
+if (WIN32)
+    target_link_libraries(yuzu PRIVATE WebView2::Loader)
+    target_compile_definitions(yuzu PRIVATE YUZU_USE_WEBVIEW2)
 endif()
 
 if (ARCHITECTURE_x86_64 OR ARCHITECTURE_arm64)

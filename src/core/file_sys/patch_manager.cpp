@@ -169,7 +169,7 @@ u64 PatchManager::GetTitleID() const {
     return title_id;
 }
 
-VirtualDir PatchManager::PatchExeFS(VirtualDir exefs) const {
+VirtualDir PatchManager::PatchExeFS(VirtualDir exefs, bool allow_dump) const {
     LOG_INFO(Loader, "Patching ExeFS for title_id={:016X}", title_id);
 
     if (exefs == nullptr)
@@ -333,7 +333,7 @@ VirtualDir PatchManager::PatchExeFS(VirtualDir exefs) const {
         exefs = std::move(layered);
     }
 
-    if (Settings::values.dump_exefs) {
+    if (allow_dump && Settings::values.dump_exefs) {
         LOG_INFO(Loader, "Dumping ExeFS for title_id={:016X}", title_id);
         const auto dump_dir = fs_controller.GetModificationDumpRoot(title_id);
         if (dump_dir != nullptr) {

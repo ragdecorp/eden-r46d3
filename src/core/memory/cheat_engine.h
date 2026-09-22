@@ -6,6 +6,7 @@
 #include <atomic>
 #include <chrono>
 #include <memory>
+#include <mutex>
 #include <vector>
 #include "common/common_types.h"
 #include "core/memory/dmnt_cheat_types.h"
@@ -70,15 +71,21 @@ public:
     void SetMainMemoryParameters(VAddr main_region_begin, u64 main_region_size);
 
     void Reload(std::vector<CheatEntry> reload_cheats);
+    void SetRuntimeMemoryFreezes(std::vector<RuntimeMemoryFreeze> freezes);
+    [[nodiscard]] std::vector<RuntimeMemoryFreeze> GetRuntimeMemoryFreezes() const;
+    [[nodiscard]] CheatProcessMetadata GetProcessMetadata() const;
 
 private:
     void FrameCallback(std::chrono::nanoseconds ns_late);
+    void ApplyRuntimeMemoryFreezes();
 
     DmntCheatVm vm;
     CheatProcessMetadata metadata;
 
     std::vector<CheatEntry> cheats;
     std::atomic_bool is_pending_reload{false};
+    mutable std::mutex runtime_freeze_mutex;
+    std::vector<RuntimeMemoryFreeze> runtime_freezes;
 
     std::shared_ptr<Core::Timing::EventType> event;
     Core::Timing::CoreTiming& core_timing;

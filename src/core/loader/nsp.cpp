@@ -181,6 +181,13 @@ ResultStatus AppLoader_NSP::ReadRomFS(FileSys::VirtualFile& out_file) {
     return secondary_loader->ReadRomFS(out_file);
 }
 
+ResultStatus AppLoader_NSP::ReadExeFS(FileSys::VirtualDir& out_dir) {
+    if (secondary_loader == nullptr) {
+        return ResultStatus::ErrorNoExeFS;
+    }
+    return secondary_loader->ReadExeFS(out_dir);
+}
+
 ResultStatus AppLoader_NSP::ReadUpdateRaw(FileSys::VirtualFile& out_file) {
     if (nsp->IsExtractedType()) {
         return ResultStatus::ErrorNoPackedUpdate;

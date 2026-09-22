@@ -340,6 +340,7 @@ private slots:
     void OnRestartGame();
     void OnPauseGame();
     void OnPauseContinueGame();
+    void OnToggleCheatOverlay();
     void OnStopGame();
     void OnPrepareForSleep(bool prepare_sleep);
     void OnMenuReportCompatibility();
@@ -441,6 +442,7 @@ private slots:
 #endif
 
 private:
+    void ShowCheatOverlay(const QString& screenshot_path);
     void RemovePlayTimeData(u64 program_id);
     bool SelectRomFSDumpTarget(const FileSys::ContentProvider&, u64 program_id,
                                u64* selected_title_id, u8* selected_content_record_type);
@@ -538,6 +540,8 @@ private:
 
     // Whether emulation is currently running in yuzu.
     bool emulation_running = false;
+    bool cheat_overlay_pending = false;
+    bool cheat_overlay_active = false;
     std::unique_ptr<EmuThread> emu_thread;
     // The path to the game currently running
     QString current_game_path;

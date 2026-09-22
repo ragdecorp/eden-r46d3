@@ -64,3 +64,13 @@ artifacts
 /install*
 vulkansdk*.exe
 *.tar.zst
+
+# Local YouTube credentials
+token_youtube.json
+youtube_api_key.json
+
+# Local/private portable data and credentials
+cheatslips_token.json
+/user/
+*.zip
+*.sha256

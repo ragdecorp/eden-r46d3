@@ -68,6 +68,30 @@ if (IOS)
 endif()
 AddJsonPackage(httplib)
 
+if (WIN32)
+    CPMAddPackage(
+        NAME webview2
+        URL https://www.nuget.org/api/v2/package/Microsoft.Web.WebView2/1.0.4078.44
+        URL_HASH SHA256=DC4D1D9168DF26B830398303E50210B6E1729F6CE5A7AC69D2C766852F489962
+        DOWNLOAD_ONLY YES
+    )
+
+    if (ARCHITECTURE_x86_64)
+        set(WEBVIEW2_LOADER_ARCH x64)
+    elseif (ARCHITECTURE_arm64)
+        set(WEBVIEW2_LOADER_ARCH arm64)
+    else()
+        set(WEBVIEW2_LOADER_ARCH x86)
+    endif()
+
+    add_library(webview2_loader STATIC IMPORTED GLOBAL)
+    set_target_properties(webview2_loader PROPERTIES
+        IMPORTED_LOCATION "${webview2_SOURCE_DIR}/build/native/${WEBVIEW2_LOADER_ARCH}/WebView2LoaderStatic.lib"
+        INTERFACE_INCLUDE_DIRECTORIES "${webview2_SOURCE_DIR}/build/native/include"
+    )
+    add_library(WebView2::Loader ALIAS webview2_loader)
+endif()
+
 if (YUZU_STATIC_ROOM)
     return()
 endif()

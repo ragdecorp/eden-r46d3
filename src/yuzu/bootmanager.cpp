@@ -963,13 +963,14 @@ void GRenderWindow::ReleaseRenderTarget() {
     main_context.reset();
 }
 
-void GRenderWindow::CaptureScreenshot(const QString& screenshot_path) {
+bool GRenderWindow::CaptureScreenshot(const QString& screenshot_path,
+                                      std::function<void(bool)> completion_callback) {
     auto& renderer = system.Renderer();
 
     if (renderer.IsScreenshotPending()) {
         LOG_WARNING(Render,
                     "A screenshot is already requested or in progress, ignoring the request");
-        return;
+        return false;
     }
 
     const Layout::FramebufferLayout layout{[]() {
@@ -989,13 +990,18 @@ void GRenderWindow::CaptureScreenshot(const QString& screenshot_path) {
         screenshot_image.bits(),
         [=, this](bool invert_y) {
             const std::string std_screenshot_path = screenshot_path.toStdString();
-            if (screenshot_image.mirrored(false, invert_y).save(screenshot_path)) {
+            const bool saved = screenshot_image.mirrored(false, invert_y).save(screenshot_path);
+            if (saved) {
                 LOG_INFO(Frontend, "Screenshot saved to \"{}\"", std_screenshot_path);
             } else {
                 LOG_ERROR(Frontend, "Failed to save screenshot to \"{}\"", std_screenshot_path);
             }
+            if (completion_callback) {
+                completion_callback(saved);
+            }
         },
         layout);
+    return true;
 }
 
 bool GRenderWindow::IsLoadingComplete() const {

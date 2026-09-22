@@ -6307,6 +6307,180 @@ Por favor, vaya a Configuración -&gt; Sistema -&gt; Red y selecciona una interf
         <translation>Nombre</translation>
     </message>
     <message>
+        <location filename="../../src/yuzu/game/game_list.cpp" line="1030"/>
+        <source>Trailer</source>
+        <translation>Trailer</translation>
+    </message>
+    <message>
+        <location filename="../../src/yuzu/game/game_list.cpp" line="1100"/>
+        <source>Players</source>
+        <translation>Jugadores</translation>
+    </message>
+    <message>
+        <location filename="../../src/yuzu/game/game_list.cpp" line="1101"/>
+        <source>Genre</source>
+        <translation>Género</translation>
+    </message>
+    <message>
+        <location filename="../../src/yuzu/game/game_list.cpp" line="1102"/>
+        <source>Tags</source>
+        <translation>Etiquetas</translation>
+    </message>
+    <message>
+        <location filename="../../src/yuzu/game/game_list.cpp" line="1103"/>
+        <source>Build ID</source>
+        <translation>Build ID</translation>
+    </message>
+    <message>
+        <source>Cheats</source>
+        <translation>Trucos</translation>
+    </message>
+    <message>
+        <source>Update status</source>
+        <translation>Actualización</translation>
+    </message>
+    <message>
+        <source>Up to date</source>
+        <translation>Al día</translation>
+    </message>
+    <message>
+        <source>New: %1</source>
+        <translation>Nueva: %1</translation>
+    </message>
+    <message>
+        <source>Local version newer</source>
+        <translation>Versión local más reciente</translation>
+    </message>
+    <message>
+        <source>Installed version unknown</source>
+        <translation>Versión instalada desconocida</translation>
+    </message>
+    <message>
+        <source>No data</source>
+        <translation>Sin datos</translation>
+    </message>
+    <message>
+        <source>Installed: %1 (v%2)</source>
+        <translation>Instalada: %1 (v%2)</translation>
+    </message>
+    <message>
+        <source>Installed: %1</source>
+        <translation>Instalada: %1</translation>
+    </message>
+    <message>
+        <source>Available: %1 (v%2)</source>
+        <translation>Disponible: %1 (v%2)</translation>
+    </message>
+    <message>
+        <source>Available: %1</source>
+        <translation>Disponible: %1</translation>
+    </message>
+    <message>
+        <source>Catalog date: %1</source>
+        <translation>Fecha del catálogo: %1</translation>
+    </message>
+    <message>
+        <source>Source: TitleDB</source>
+        <translation>Fuente: TitleDB</translation>
+    </message>
+    <message>
+        <source>Build ID required</source>
+        <translation>Se requiere Build ID</translation>
+    </message>
+    <message>
+        <source>Checking...</source>
+        <translation>Comprobando...</translation>
+    </message>
+    <message>
+        <source>Available (%1)</source>
+        <translation>Disponible (%1)</translation>
+    </message>
+    <message>
+        <source>Not available</source>
+        <translation>No disponible</translation>
+    </message>
+    <message>
+        <source>Connection error</source>
+        <translation>Error de conexión</translation>
+    </message>
+    <message>
+        <source>Not checked</source>
+        <translation>Sin comprobar</translation>
+    </message>
+    <message>
+        <source>Exact match: Title ID %1 / Build ID %2</source>
+        <translation>Coincidencia exacta: Title ID %1 / Build ID %2</translation>
+    </message>
+    <message>
+        <source>Downloading...</source>
+        <translation>Descargando...</translation>
+    </message>
+    <message>
+        <source>The Build ID for this game could not be determined.</source>
+        <translation>No se pudo determinar el Build ID de este juego.</translation>
+    </message>
+    <message>
+        <source>Eden is still checking cheats for this game.</source>
+        <translation>Eden todavía está comprobando los trucos para este juego.</translation>
+    </message>
+    <message>
+        <source>No cheats were found for this exact Title ID and Build ID.</source>
+        <translation>No se encontraron trucos para esta combinación exacta de Title ID y Build ID.</translation>
+    </message>
+    <message>
+        <source>The portable CheatSlips token file was not found.</source>
+        <translation>No se encontró el archivo portátil del token de CheatSlips.</translation>
+    </message>
+    <message>
+        <source>The CheatSlips API token is invalid.</source>
+        <translation>El token de la API de CheatSlips no es válido.</translation>
+    </message>
+    <message>
+        <source>The CheatSlips download quota has been reached for today.</source>
+        <translation>Se alcanzó la cuota de descargas de CheatSlips para hoy.</translation>
+    </message>
+    <message>
+        <source>Could not connect to CheatSlips.</source>
+        <translation>No se pudo conectar con CheatSlips.</translation>
+    </message>
+    <message>
+        <source>CheatSlips returned an invalid response.</source>
+        <translation>CheatSlips devolvió una respuesta no válida.</translation>
+    </message>
+    <message>
+        <source>The selected cheat is invalid.</source>
+        <translation>El truco seleccionado no es válido.</translation>
+    </message>
+    <message>
+        <source>Cheat '%1' has an invalid code format.</source>
+        <translation>El truco «%1» tiene un formato de código no válido.</translation>
+    </message>
+    <message>
+        <source>Could not create the cheat directory.</source>
+        <translation>No se pudo crear el directorio del truco.</translation>
+    </message>
+    <message>
+        <source>Could not save the selected cheat.</source>
+        <translation>No se pudo guardar el truco seleccionado.</translation>
+    </message>
+    <message numerus="yes">
+        <source>Installed %n cheat(s) for Build ID %1.</source>
+        <translation>
+            <numerusform>Se instaló %n truco para el Build ID %1.</numerusform>
+            <numerusform>Se instalaron %n trucos para el Build ID %1.</numerusform>
+        </translation>
+    </message>
+    <message>
+        <location filename="../../src/yuzu/game/game_list_worker.cpp" line="225"/>
+        <source>Watch Trailer</source>
+        <translation>Ver Trailer</translation>
+    </message>
+    <message>
+        <location filename="../../src/yuzu/game/game_list.cpp" line="598"/>
+        <source>Searching...</source>
+        <translation>Buscando...</translation>
+    </message>
+    <message>
         <location filename="../../src/yuzu/game/game_list.cpp" line="990"/>
         <source>Compatibility</source>
         <translation>Compatibilidad</translation>
@@ -6330,6 +6504,50 @@ Por favor, vaya a Configuración -&gt; Sistema -&gt; Red y selecciona una interf
         <location filename="../../src/yuzu/game/game_list.cpp" line="994"/>
         <source>Play time</source>
         <translation>Tiempo de juego</translation>
+    </message>
+</context>
+<context>
+    <name>CheatSelectionDialog</name>
+    <message>
+        <source>Cheats for %1</source>
+        <translation>Trucos para %1</translation>
+    </message>
+    <message>
+        <source>Select cheats for the exact version below.
+Title ID: %1
+Build ID: %2</source>
+        <translation>Selecciona trucos para la versión exacta indicada abajo.
+Title ID: %1
+Build ID: %2</translation>
+    </message>
+    <message>
+        <source>Credits: %1</source>
+        <translation>Créditos: %1</translation>
+    </message>
+    <message>
+        <source>Select all</source>
+        <translation>Seleccionar todos</translation>
+    </message>
+    <message>
+        <source>Select none</source>
+        <translation>No seleccionar ninguno</translation>
+    </message>
+    <message>
+        <source>Install selected</source>
+        <translation>Instalar seleccionados</translation>
+    </message>
+</context>
+<context>
+    <name>TrailerPlayerDialog</name>
+    <message>
+        <location filename="../../src/yuzu/game/trailer_player_dialog.cpp" line="61"/>
+        <source>Close trailer</source>
+        <translation>Cerrar tráiler</translation>
+    </message>
+    <message>
+        <location filename="../../src/yuzu/game/trailer_player_dialog.cpp" line="77"/>
+        <source>Loading trailer...</source>
+        <translation>Cargando tráiler...</translation>
     </message>
 </context>
 <context>
@@ -6670,6 +6888,11 @@ Mensaje de depuración:</translation>
     </message>
     <message>
         <location filename="../../src/qt_common/config/uisettings.cpp" line="59"/>
+        <source>Toggle Cheat Overlay</source>
+        <translation>Alternar modo de trucos</translation>
+    </message>
+    <message>
+        <location filename="../../src/qt_common/config/uisettings.cpp" line="60"/>
         <source>Toggle Filter Bar</source>
         <translation>Alternar barra de filtro</translation>
     </message>
@@ -6865,7 +7088,718 @@ Mensaje de depuración:</translation>
     </message>
 </context>
 <context>
+    <name>CheatNumericInputDialog</name>
+    <message>
+        <source>Enter value</source>
+        <translation>Introducir valor</translation>
+    </message>
+    <message>
+        <source>Enter search value</source>
+        <translation>Introduce el valor buscado</translation>
+    </message>
+    <message>
+        <source>Clear</source>
+        <translation>Limpiar</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancelar</translation>
+    </message>
+    <message>
+        <source>Accept</source>
+        <translation>Aceptar</translation>
+    </message>
+    <message>
+        <source>D-Pad/Stick: navigate   A: select   B: cancel
+X: erase one digit   Y: clear all</source>
+        <translation>Cruceta/Stick: navegar   A: seleccionar   B: cancelar
+X: borrar un dígito   Y: limpiar todo</translation>
+    </message>
+</context>
+<context>
+    <name>CheatOverlayDialog</name>
+    <message>
+        <source>Cheat Mode</source>
+        <translation>Modo de trucos</translation>
+    </message>
+    <message>
+        <source>Safe read-only session. Memory writes are disabled.</source>
+        <translation>Sesión segura de solo lectura. Las escrituras de memoria están desactivadas.</translation>
+    </message>
+    <message>
+        <source>Game</source>
+        <translation>Juego</translation>
+    </message>
+    <message>
+        <source>Title ID</source>
+        <translation>Title ID</translation>
+    </message>
+    <message>
+        <source>Build ID</source>
+        <translation>Build ID</translation>
+    </message>
+    <message>
+        <source>Memory Scanner</source>
+        <translation>Escáner de memoria</translation>
+    </message>
+    <message>
+        <source>Scan type</source>
+        <translation>Tipo de escaneo</translation>
+    </message>
+    <message>
+        <source>Exact value</source>
+        <translation>Valor exacto</translation>
+    </message>
+    <message>
+        <source>Unknown initial value</source>
+        <translation>Valor inicial desconocido</translation>
+    </message>
+    <message>
+        <source>Data type</source>
+        <translation>Tipo de dato</translation>
+    </message>
+    <message>
+        <source>Search value</source>
+        <translation>Valor buscado</translation>
+    </message>
+    <message>
+        <source>Enter the value shown in the game</source>
+        <translation>Introduce el valor mostrado en el juego</translation>
+    </message>
+    <message>
+        <source>Candidates: —</source>
+        <translation>Candidatos: —</translation>
+    </message>
+    <message>
+        <source>Scanner engine pending. This screen does not read or change memory yet.</source>
+        <translation>Motor de escaneo pendiente. Esta pantalla todavía no lee ni modifica memoria.</translation>
+    </message>
+    <message>
+        <source>New scan</source>
+        <translation>Nuevo escaneo</translation>
+    </message>
+    <message>
+        <source>Next scan</source>
+        <translation>Siguiente escaneo</translation>
+    </message>
+    <message>
+        <source>Reset</source>
+        <translation>Restablecer</translation>
+    </message>
+    <message>
+        <source>Available when the read-only scanner is implemented</source>
+        <translation>Disponible cuando se implemente el escáner de solo lectura</translation>
+    </message>
+    <message>
+        <source>Run a new scan first</source>
+        <translation>Ejecuta primero un nuevo escaneo</translation>
+    </message>
+    <message>
+        <source>D-Pad/Stick: navigate   A: confirm   B: close</source>
+        <translation>Cruceta/Stick: navegar   A: confirmar   B: cerrar</translation>
+    </message>
+    <message>
+        <source>Continue game</source>
+        <translation>Continuar juego</translation>
+    </message>
+    <message>
+        <source>Screenshot captured when Cheat Mode was opened</source>
+        <translation>Captura tomada al abrir el modo de trucos</translation>
+    </message>
+    <message>
+        <source>Screenshot preview unavailable</source>
+        <translation>Vista previa de la captura no disponible</translation>
+    </message>
+    <message>
+        <source>What do you want to find?</source>
+        <translation>¿Qué quieres encontrar?</translation>
+    </message>
+    <message>
+        <source>I know the current value</source>
+        <translation>Sé el valor actual</translation>
+    </message>
+    <message>
+        <source>I don't know the value</source>
+        <translation>No sé el valor</translation>
+    </message>
+    <message>
+        <source>Continue previous search</source>
+        <translation>Continuar búsqueda anterior</translation>
+    </message>
+    <message>
+        <source>Advanced options</source>
+        <translation>Opciones avanzadas</translation>
+    </message>
+    <message>
+        <source>Available after the first memory scan</source>
+        <translation>Disponible después del primer escaneo de memoria</translation>
+    </message>
+    <message>
+        <source>Select 'I know the current value'</source>
+        <translation>Selecciona «Sé el valor actual»</translation>
+    </message>
+    <message>
+        <source>Open numeric keypad</source>
+        <translation>Abrir teclado numérico</translation>
+    </message>
+    <message>
+        <source>Guided search: I know the current value</source>
+        <translation>Búsqueda guiada: sé el valor actual</translation>
+    </message>
+    <message>
+        <source>Guided search: I don't know the initial value</source>
+        <translation>Búsqueda guiada: no sé el valor inicial</translation>
+    </message>
+    <message>
+        <source>Enter the number currently shown in the game. Int32 is recommended to begin.</source>
+        <translation>Introduce el número mostrado actualmente en el juego. Se recomienda comenzar con Int32.</translation>
+    </message>
+    <message>
+        <source>The first scan will save a read-only snapshot. After playing, you can indicate whether the value increased, decreased, changed, or stayed the same.</source>
+        <translation>El primer escaneo guardará una captura de memoria de solo lectura. Después de jugar podrás indicar si el valor aumentó, disminuyó, cambió o permaneció igual.</translation>
+    </message>
+    <message>
+        <source>Value ready. Memory scanning remains disabled in this interface test.</source>
+        <translation>Valor preparado. El escaneo de memoria continúa desactivado en esta prueba de interfaz.</translation>
+    </message>
+    <message>
+        <source>Read-only exact-value scanning is ready. Int32 is enabled for this first stage.</source>
+        <translation>El escaneo de valor exacto de solo lectura está listo. Int32 está habilitado en esta primera etapa.</translation>
+    </message>
+    <message>
+        <source>Enter an Int32 value to start a read-only scan</source>
+        <translation>Introduce un valor Int32 para iniciar un escaneo de solo lectura</translation>
+    </message>
+    <message>
+        <source>Only Int32 exact-value scans are enabled in this first stage</source>
+        <translation>En esta primera etapa solo están habilitados los escaneos de valor exacto Int32</translation>
+    </message>
+    <message>
+        <source>Start a read-only exact-value scan</source>
+        <translation>Iniciar un escaneo de valor exacto de solo lectura</translation>
+    </message>
+    <message>
+        <source>Value ready. Select New scan to search memory without modifying it.</source>
+        <translation>Valor preparado. Selecciona Nuevo escaneo para buscar en memoria sin modificarla.</translation>
+    </message>
+    <message>
+        <source>Enter a valid Int32 value before starting the scan.</source>
+        <translation>Introduce un valor Int32 válido antes de iniciar el escaneo.</translation>
+    </message>
+    <message>
+        <source>Scanning writable game memory (read only)...</source>
+        <translation>Escaneando la memoria modificable del juego (solo lectura)...</translation>
+    </message>
+    <message>
+        <source>Memory scan</source>
+        <translation>Escaneo de memoria</translation>
+    </message>
+    <message>
+        <source>Scanning paused game memory. No values will be changed.</source>
+        <translation>Escaneando la memoria del juego pausado. No se cambiará ningún valor.</translation>
+    </message>
+    <message>
+        <source>Candidates: %1</source>
+        <translation>Candidatos: %1</translation>
+    </message>
+    <message>
+        <source>Scan complete: no matching Int32 values were found.</source>
+        <translation>Escaneo terminado: no se encontraron valores Int32 coincidentes.</translation>
+    </message>
+    <message>
+        <source>First read-only scan complete. Play until the value changes, then open Cheat Mode again for the next scan.</source>
+        <translation>Primer escaneo de solo lectura terminado. Juega hasta que cambie el valor y vuelve a abrir el Modo de trucos para el siguiente escaneo.</translation>
+    </message>
+    <message>
+        <source>First read-only scan complete. Candidate detection is working; saving the session and Next scan are the following stage.</source>
+        <translation>Primer escaneo de solo lectura terminado. La detección de candidatos funciona; guardar la sesión y Siguiente escaneo son la próxima etapa.</translation>
+    </message>
+    <message>
+        <source>Scan cancelled. Game memory was not modified.</source>
+        <translation>Escaneo cancelado. La memoria del juego no fue modificada.</translation>
+    </message>
+    <message>
+        <source>Candidates: more than 2,000,000</source>
+        <translation>Candidatos: más de 2,000,000</translation>
+    </message>
+    <message>
+        <source>Too many matches. Use a more distinctive current value and start again.</source>
+        <translation>Hay demasiadas coincidencias. Usa un valor actual más distintivo y comienza de nuevo.</translation>
+    </message>
+    <message>
+        <source>The running game process is no longer available.</source>
+        <translation>El proceso del juego en ejecución ya no está disponible.</translation>
+    </message>
+    <message>
+        <source>Could not enumerate the game's memory regions.</source>
+        <translation>No se pudieron enumerar las regiones de memoria del juego.</translation>
+    </message>
+    <message>
+        <source>A readable game-memory region could not be scanned safely.</source>
+        <translation>No se pudo escanear de forma segura una región legible de la memoria del juego.</translation>
+    </message>
+    <message>
+        <source>Enter the new current value to filter the saved candidates</source>
+        <translation>Introduce el nuevo valor actual para filtrar los candidatos guardados</translation>
+    </message>
+    <message>
+        <source>New value ready. Select Next scan to filter the saved candidates.</source>
+        <translation>Nuevo valor preparado. Selecciona Siguiente escaneo para filtrar los candidatos guardados.</translation>
+    </message>
+    <message>
+        <source>There is no saved search to continue.</source>
+        <translation>No hay una búsqueda guardada para continuar.</translation>
+    </message>
+    <message>
+        <source>Enter the value currently shown in the game to reduce the saved candidates.</source>
+        <translation>Introduce el valor mostrado actualmente en el juego para reducir los candidatos guardados.</translation>
+    </message>
+    <message>
+        <source>Filtering saved candidates (read only)...</source>
+        <translation>Filtrando candidatos guardados (solo lectura)...</translation>
+    </message>
+    <message>
+        <source>No candidates remain. Check the value and begin a new scan.</source>
+        <translation>No quedan candidatos. Revisa el valor y comienza un nuevo escaneo.</translation>
+    </message>
+    <message>
+        <source>The scan completed, but its session could not be saved in the portable user folder.</source>
+        <translation>El escaneo terminó, pero no se pudo guardar la sesión en la carpeta user portátil.</translation>
+    </message>
+    <message>
+        <source>Next scan complete: %1 candidates remain. Repeat after the value changes again.</source>
+        <translation>Siguiente escaneo terminado: quedan %1 candidatos. Repite después de que el valor vuelva a cambiar.</translation>
+    </message>
+    <message>
+        <source>First scan saved. Continue the game, change the value, reopen Cheat Mode and select Continue previous search.</source>
+        <translation>Primer escaneo guardado. Continúa el juego, cambia el valor, vuelve a abrir el Modo de trucos y selecciona Continuar búsqueda anterior.</translation>
+    </message>
+    <message>
+        <source>A saved read-only search was found. Continue the game until the value changes, then select Continue previous search.</source>
+        <translation>Se encontró una búsqueda de solo lectura guardada. Continúa el juego hasta que cambie el valor y selecciona Continuar búsqueda anterior.</translation>
+    </message>
+    <message>
+        <source>Enter the new value currently shown in the game. It will filter the saved candidates.</source>
+        <translation>Introduce el nuevo valor mostrado actualmente en el juego. Se usará para filtrar los candidatos guardados.</translation>
+    </message>
+    <message>
+        <source>View candidates</source>
+        <translation>Ver candidatos</translation>
+    </message>
+    <message>
+        <source>View candidates (%1)</source>
+        <translation>Ver candidatos (%1)</translation>
+    </message>
+    <message>
+        <source>Narrow the search to 500 candidates or fewer</source>
+        <translation>Reduce la búsqueda a 500 candidatos o menos</translation>
+    </message>
+    <message>
+        <source>Read the current values without modifying game memory</source>
+        <translation>Lee los valores actuales sin modificar la memoria del juego</translation>
+    </message>
+    <message>
+        <source>Run a scan before opening the candidate viewer.</source>
+        <translation>Ejecuta un escaneo antes de abrir el visor de candidatos.</translation>
+    </message>
+    <message>
+        <source>Reduce the search to 500 candidates or fewer before viewing results.</source>
+        <translation>Reduce la búsqueda a 500 candidatos o menos antes de ver los resultados.</translation>
+    </message>
+    <message>
+        <source>The selected candidate could not be saved in the portable user folder.</source>
+        <translation>No se pudo guardar el candidato seleccionado en la carpeta user portátil.</translation>
+    </message>
+    <message>
+        <source>Candidate %1 is selected for the next read-only validation step.</source>
+        <translation>El candidato %1 quedó seleccionado para el siguiente paso de validación de solo lectura.</translation>
+    </message>
+    <message>
+        <source>Manual mode. Memory changes require selected candidates and explicit confirmation.</source>
+        <translation>Modo manual. Los cambios de memoria requieren candidatos seleccionados y confirmación explícita.</translation>
+    </message>
+    <message>
+        <source>The selected candidates could not be saved in the portable user folder.</source>
+        <translation>No se pudieron guardar los candidatos seleccionados en la carpeta user portátil.</translation>
+    </message>
+    <message>
+        <source>%1 candidates are selected for manual memory changes.</source>
+        <translation>Hay %1 candidatos seleccionados para cambios manuales de memoria.</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancelar</translation>
+    </message>
+    <message>
+        <source>Changed</source>
+        <translation>Cambió</translation>
+    </message>
+    <message>
+        <source>Unchanged</source>
+        <translation>Sin cambios</translation>
+    </message>
+    <message>
+        <source>Increased</source>
+        <translation>Aumentó</translation>
+    </message>
+    <message>
+        <source>Decreased</source>
+        <translation>Disminuyó</translation>
+    </message>
+    <message>
+        <source>Greater than</source>
+        <translation>Mayor que</translation>
+    </message>
+    <message>
+        <source>Less than</source>
+        <translation>Menor que</translation>
+    </message>
+    <message>
+        <source>Automatic (32/64-bit)</source>
+        <translation>Automático (32/64 bits)</translation>
+    </message>
+    <message>
+        <source>Alignment</source>
+        <translation>Alineación</translation>
+    </message>
+    <message>
+        <source>Natural (recommended)</source>
+        <translation>Natural (recomendado)</translation>
+    </message>
+    <message>
+        <source>Byte by byte (slower)</source>
+        <translation>Byte por byte (más lento)</translation>
+    </message>
+    <message>
+        <source>Undo scan</source>
+        <translation>Deshacer escaneo</translation>
+    </message>
+    <message>
+        <source>Guided search: compare with a numeric value</source>
+        <translation>Búsqueda guiada: comparar con un valor numérico</translation>
+    </message>
+    <message>
+        <source>Guided search: compare with the previous scan</source>
+        <translation>Búsqueda guiada: comparar con el escaneo anterior</translation>
+    </message>
+    <message>
+        <source>Typed read-only scanning is ready. Automatic mode checks Int32, Int64, Float, and Double.</source>
+        <translation>El escaneo tipado de solo lectura está listo. El modo automático revisa Int32, Int64, Float y Double.</translation>
+    </message>
+    <message>
+        <source>Enter a value valid for the selected numeric data type.</source>
+        <translation>Introduce un valor válido para el tipo de dato numérico seleccionado.</translation>
+    </message>
+    <message>
+        <source>No candidates remain. Use Undo scan to restore the previous results.</source>
+        <translation>No quedan candidatos. Usa Deshacer escaneo para restaurar los resultados anteriores.</translation>
+    </message>
+    <message>
+        <source>The previous candidate set was restored. You can enter a corrected value or choose another comparison.</source>
+        <translation>Se restauró el conjunto anterior de candidatos. Puedes introducir un valor corregido o elegir otra comparación.</translation>
+    </message>
+    <message>
+        <source>Saving a read-only memory snapshot...</source>
+        <translation>Guardando una captura de memoria de solo lectura...</translation>
+    </message>
+    <message>
+        <source>Capturing readable game memory. The snapshot will be stored in the portable user folder.</source>
+        <translation>Capturando la memoria legible del juego. La captura se guardará en la carpeta user portátil.</translation>
+    </message>
+    <message>
+        <source>Candidates: snapshot ready</source>
+        <translation>Candidatos: captura preparada</translation>
+    </message>
+    <message>
+        <source>Initial snapshot saved. Continue the game, change the value, reopen Cheat Mode and choose Increased, Decreased, Changed, Unchanged, or an exact value.</source>
+        <translation>Captura inicial guardada. Continúa el juego, cambia el valor, vuelve a abrir el Modo de trucos y elige Aumentó, Disminuyó, Cambió, Sin cambios o un valor exacto.</translation>
+    </message>
+    <message>
+        <source>A saved unknown-value snapshot was found. Choose how the value changed and select Next scan.</source>
+        <translation>Se encontró una captura de valor desconocido. Elige cómo cambió el valor y selecciona Siguiente escaneo.</translation>
+    </message>
+    <message>
+        <source>Choose how the unknown value changed, then select Next scan.</source>
+        <translation>Elige cómo cambió el valor desconocido y después selecciona Siguiente escaneo.</translation>
+    </message>
+    <message>
+        <source>The unknown-value snapshot was restored. Choose another comparison and run Next scan.</source>
+        <translation>Se restauró la captura de valor desconocido. Elige otra comparación y ejecuta Siguiente escaneo.</translation>
+    </message>
+    <message>
+        <source>The saved memory snapshot is missing or could not be read.</source>
+        <translation>La captura de memoria guardada no existe o no se pudo leer.</translation>
+    </message>
+    <message>
+        <source>The compressed snapshot exceeded the 1 GB safety limit. Choose a known value or a narrower scan method.</source>
+        <translation>La captura comprimida superó el límite de seguridad de 1 GB. Elige un valor conocido o un método de búsqueda más específico.</translation>
+    </message>
+    <message>
+        <source>The memory snapshot exceeds the configured safety limit.</source>
+        <translation>La captura de memoria supera el límite de seguridad configurado.</translation>
+    </message>
+</context>
+<context>
+    <name>CheatCandidateDialog</name>
+    <message>
+        <source>Candidate viewer</source>
+        <translation>Visor de candidatos</translation>
+    </message>
+    <message>
+        <source>Manual mode. Values update only when you select Refresh values.</source>
+        <translation>Modo manual. Los valores solo se actualizan al seleccionar Actualizar valores.</translation>
+    </message>
+    <message>
+        <source>Selected</source>
+        <translation>Seleccionado</translation>
+    </message>
+    <message>
+        <source>Address</source>
+        <translation>Dirección</translation>
+    </message>
+    <message>
+        <source>Last scan</source>
+        <translation>Último escaneo</translation>
+    </message>
+    <message>
+        <source>Data type</source>
+        <translation>Tipo de dato</translation>
+    </message>
+    <message>
+        <source>Current value</source>
+        <translation>Valor actual</translation>
+    </message>
+    <message>
+        <source>State</source>
+        <translation>Estado</translation>
+    </message>
+    <message>
+        <source>D-Pad/Stick: navigate   A: select   B: close</source>
+        <translation>Cruceta/Stick: navegar   A: seleccionar   B: cerrar</translation>
+    </message>
+    <message>
+        <source>Refresh values</source>
+        <translation>Actualizar valores</translation>
+    </message>
+    <message>
+        <source>Select candidate</source>
+        <translation>Seleccionar candidato</translation>
+    </message>
+    <message>
+        <source>Unselect candidate</source>
+        <translation>Quitar selección</translation>
+    </message>
+    <message>
+        <source>Select all</source>
+        <translation>Seleccionar todos</translation>
+    </message>
+    <message>
+        <source>Clear selection</source>
+        <translation>Quitar selección</translation>
+    </message>
+    <message>
+        <source>Change selected</source>
+        <translation>Cambiar seleccionados</translation>
+    </message>
+    <message>
+        <source>Change selected (%1)</source>
+        <translation>Cambiar seleccionados (%1)</translation>
+    </message>
+    <message>
+        <source>Undo last change</source>
+        <translation>Deshacer último cambio</translation>
+    </message>
+    <message>
+        <source>Enter a valid Int32 value.</source>
+        <translation>Introduce un valor Int32 válido.</translation>
+    </message>
+    <message>
+        <source>Enter a value valid for the selected data type.</source>
+        <translation>Introduce un valor válido para el tipo de dato seleccionado.</translation>
+    </message>
+    <message>
+        <source>Confirm memory change</source>
+        <translation>Confirmar cambio de memoria</translation>
+    </message>
+    <message>
+        <source>Write value %1 once to %2 selected candidates? The game may overwrite it later.</source>
+        <translation>¿Escribir una vez el valor %1 en los %2 candidatos seleccionados? El juego puede sobrescribirlo posteriormente.</translation>
+    </message>
+    <message>
+        <source>Memory change verified at %1 of %2 selected addresses. Use Undo last change before continuing if the result is not correct.</source>
+        <translation>Cambio de memoria verificado en %1 de %2 direcciones seleccionadas. Usa Deshacer último cambio antes de continuar si el resultado no es correcto.</translation>
+    </message>
+    <message>
+        <source>Undo restored %1 of %2 addresses.</source>
+        <translation>Se restauraron %1 de %2 direcciones.</translation>
+    </message>
+    <message>
+        <source>Region</source>
+        <translation>Región</translation>
+    </message>
+    <message>
+        <source>Relative offset</source>
+        <translation>Offset relativo</translation>
+    </message>
+    <message>
+        <source>Main (potentially stable)</source>
+        <translation>Main (potencialmente estable)</translation>
+    </message>
+    <message>
+        <source>Heap (dynamic)</source>
+        <translation>Heap (dinámico)</translation>
+    </message>
+    <message>
+        <source>Alias (dynamic)</source>
+        <translation>Alias (dinámico)</translation>
+    </message>
+    <message>
+        <source>ASLR (dynamic)</source>
+        <translation>ASLR (dinámico)</translation>
+    </message>
+    <message>
+        <source>Other</source>
+        <translation>Otra</translation>
+    </message>
+    <message>
+        <source>Normal mapping (dynamic)</source>
+        <translation>Mapeo Normal (dinámico)</translation>
+    </message>
+    <message>
+        <source>Code data mapping</source>
+        <translation>Mapeo de datos de código</translation>
+    </message>
+    <message>
+        <source>Alias code data mapping</source>
+        <translation>Mapeo alias de datos de código</translation>
+    </message>
+    <message>
+        <source>Temporary freeze runs at 12 Hz and stops when the game closes.</source>
+        <translation>El congelamiento temporal funciona a 12 Hz y se detiene al cerrar el juego.</translation>
+    </message>
+    <message>
+        <source>Freeze selected</source>
+        <translation>Congelar seleccionados</translation>
+    </message>
+    <message>
+        <source>Freeze selected (%1)</source>
+        <translation>Congelar seleccionados (%1)</translation>
+    </message>
+    <message>
+        <source>Disable freeze</source>
+        <translation>Desactivar congelamiento</translation>
+    </message>
+    <message>
+        <source>Disable freeze (%1)</source>
+        <translation>Desactivar congelamiento (%1)</translation>
+    </message>
+    <message>
+        <source>Confirm temporary freeze</source>
+        <translation>Confirmar congelamiento temporal</translation>
+    </message>
+    <message>
+        <source>Keep value %1 at %2 selected addresses while this game is running? This replaces the current temporary freeze.</source>
+        <translation>¿Mantener el valor %1 en las %2 direcciones seleccionadas mientras se ejecuta este juego? Esto reemplaza el congelamiento temporal actual.</translation>
+    </message>
+    <message>
+        <source>Temporary freeze enabled at %1 of %2 addresses. It will stop automatically when the game closes.</source>
+        <translation>Congelamiento temporal activado en %1 de %2 direcciones. Se detendrá automáticamente al cerrar el juego.</translation>
+    </message>
+    <message>
+        <source>Temporary freeze disabled for %1 addresses.</source>
+        <translation>Congelamiento temporal desactivado para %1 direcciones.</translation>
+    </message>
+    <message>
+        <source>Restore session changes</source>
+        <translation>Restaurar cambios de la sesión</translation>
+    </message>
+    <message>
+        <source>Safe mode: select exactly one candidate before changing memory. Test candidates one at a time so auxiliary game state is not modified.</source>
+        <translation>Modo seguro: selecciona exactamente un candidato antes de cambiar la memoria. Prueba los candidatos uno por uno para no modificar estados auxiliares del juego.</translation>
+    </message>
+    <message>
+        <source>Safe mode: freeze exactly one validated candidate. Freezing several matching addresses can disable controls or corrupt game state.</source>
+        <translation>Modo seguro: congela exactamente un candidato validado. Congelar varias direcciones coincidentes puede desactivar controles o dañar el estado del juego.</translation>
+    </message>
+    <message>
+        <source>The original value could not be saved. No memory was modified.</source>
+        <translation>No se pudo guardar el valor original. No se modificó la memoria.</translation>
+    </message>
+    <message>
+        <source>There are no restorable changes in this game session.</source>
+        <translation>No hay cambios restaurables en esta sesión del juego.</translation>
+    </message>
+    <message>
+        <source>Session recovery restored %1 of %2 original values and disabled freezing.</source>
+        <translation>La recuperación de la sesión restauró %1 de %2 valores originales y desactivó el congelamiento.</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Cerrar</translation>
+    </message>
+    <message>
+        <source>Yes</source>
+        <translation>Sí</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancelar</translation>
+    </message>
+    <message>
+        <source>Unavailable</source>
+        <translation>No disponible</translation>
+    </message>
+    <message>
+        <source>Unreadable</source>
+        <translation>No legible</translation>
+    </message>
+    <message>
+        <source>Changed</source>
+        <translation>Cambió</translation>
+    </message>
+    <message>
+        <source>Unchanged</source>
+        <translation>Sin cambios</translation>
+    </message>
+    <message>
+        <source>Read-only snapshot: %1 changed, %2 unreadable. No memory was modified.</source>
+        <translation>Captura de solo lectura: %1 cambiaron y %2 no se pudieron leer. No se modificó la memoria.</translation>
+    </message>
+</context>
+<context>
     <name>MainWindow</name>
+    <message>
+        <source>Cheat Mode</source>
+        <translation>Modo de trucos</translation>
+    </message>
+    <message>
+        <source>Game: %1</source>
+        <translation>Juego: %1</translation>
+    </message>
+    <message>
+        <source>Title ID: %1</source>
+        <translation>Title ID: %1</translation>
+    </message>
+    <message>
+        <source>Build ID: %1</source>
+        <translation>Build ID: %1</translation>
+    </message>
+    <message>
+        <source>Read-only session. Memory scanning and changes are not active yet.</source>
+        <translation>Sesión de solo lectura. El escaneo y los cambios de memoria todavía no están activos.</translation>
+    </message>
+    <message>
+        <source>Unknown game</source>
+        <translation>Juego desconocido</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Cerrar</translation>
+    </message>
+    <message>
+        <source>Continue</source>
+        <translation>Continuar</translation>
+    </message>
     <message>
         <location filename="../../src/yuzu/main.ui" line="14"/>
         <source>yuzu</source>

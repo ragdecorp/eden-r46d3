@@ -756,6 +756,25 @@ void System::RegisterCheatList(const std::vector<Memory::CheatEntry>& list,
     impl->cheat_engine->SetMainMemoryParameters(main_region_begin, main_region_size);
 }
 
+void System::SetRuntimeCheatFreezes(std::vector<Memory::RuntimeMemoryFreeze> freezes) {
+    if (impl->cheat_engine) {
+        impl->cheat_engine->SetRuntimeMemoryFreezes(std::move(freezes));
+    }
+}
+
+std::vector<Memory::RuntimeMemoryFreeze> System::GetRuntimeCheatFreezes() const {
+    return impl->cheat_engine ? impl->cheat_engine->GetRuntimeMemoryFreezes()
+                              : std::vector<Memory::RuntimeMemoryFreeze>{};
+}
+
+bool System::GetCheatProcessMetadata(Memory::CheatProcessMetadata& metadata) const {
+    if (!impl->cheat_engine) {
+        return false;
+    }
+    metadata = impl->cheat_engine->GetProcessMetadata();
+    return true;
+}
+
 void System::SetFrontendAppletSet(Service::AM::Frontend::FrontendAppletSet&& set) {
     impl->frontend_applets.SetFrontendAppletSet(std::move(set));
 }

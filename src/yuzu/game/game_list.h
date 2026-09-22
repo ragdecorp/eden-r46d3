@@ -7,11 +7,15 @@
 #pragma once
 
 #include <QFileSystemWatcher>
+#include <QDateTime>
+#include <QHash>
 #include <QLabel>
 #include <QLineEdit>
 #include <QList>
 #include <QPushButton>
+#include <QPointer>
 #include <QStandardItemModel>
+#include <QSet>
 #include <QString>
 #include <QTreeView>
 #include <QVBoxLayout>
@@ -36,10 +40,14 @@ class System;
 }
 
 class ControllerNavigation;
+class CheatAvailabilityManager;
+class GameMetadataManager;
+class GameUpdateManager;
 class GameListWorker;
 class GameListSearchField;
 class GameListDir;
 class MainWindow;
+class TrailerPlayerDialog;
 enum class AmLaunchType;
 enum class StartGameType;
 
@@ -69,6 +77,16 @@ public:
         COLUMN_PLAY_TIME,
         COLUMN_ADD_ONS,
         COLUMN_COMPATIBILITY,
+        COLUMN_TRAILER,
+        COLUMN_PLAYERS,
+        COLUMN_GENRE,
+        COLUMN_TAGS,
+        COLUMN_BUILD_ID,
+        COLUMN_CHEATS,
+        COLUMN_UPDATE_STATUS,
+        COLUMN_LAST_PLAYED,
+        COLUMN_DATE_ADDED,
+        COLUMN_CREATED,
         COLUMN_COUNT, // Number of columns
     };
 
@@ -99,6 +117,7 @@ public:
 
     bool IsTreeMode();
     void ResetViewMode();
+    void RecordGameStarted(u64 title_id);
 
 public slots:
     void RefreshGameDirectory();
@@ -132,6 +151,9 @@ signals:
     void SaveConfig();
 
 private slots:
+    void OnItemClicked(const QModelIndex& item);
+    void OnItemDoubleClicked(const QModelIndex& item);
+    void OnMetadataItemChanged(QStandardItem* item);
     void OnItemExpanded(const QModelIndex& item);
     void OnTextChanged(const QString& new_text);
     void OnFilterCloseClicked();
@@ -149,6 +171,15 @@ private:
 
 private:
     void ValidateEntry(const QModelIndex& item);
+    void OpenCheatsForItem(const QModelIndex& item);
+    void OpenTrailerForItem(const QModelIndex& item);
+    void UpdateMetadataRows(u64 title_id);
+    void UpdateHistoryRows(u64 title_id);
+    void UpdateCheatRows(u64 title_id, const QString& build_id);
+    void UpdateGameUpdateRows(u64 title_id = 0);
+    void LoadLibraryHistory();
+    void SaveLibraryHistory();
+    void PopulateHistoryItems(const QList<QStandardItem*>& entry_items, u64 title_id);
 
     void ToggleFavorite(u64 program_id);
     void AddFavorite(u64 program_id);
@@ -178,6 +209,9 @@ private:
     QFileSystemWatcher* watcher = nullptr;
     QFileSystemWatcher* external_watcher = nullptr;
     ControllerNavigation* controller_navigation = nullptr;
+    CheatAvailabilityManager* cheat_availability_manager = nullptr;
+    GameMetadataManager* metadata_manager = nullptr;
+    GameUpdateManager* game_update_manager = nullptr;
     CompatibilityList compatibility_list;
 
     QVariantAnimation* vertical_scroll = nullptr;
@@ -194,6 +228,19 @@ private:
     Core::System& system;
 
     bool m_isTreeMode = true;
+    bool metadata_update_in_progress = false;
+    bool cheat_download_in_progress = false;
+    bool trailer_search_in_progress = false;
+    struct GameHistoryEntry {
+        QDateTime added_at;
+        QDateTime last_played_at;
+    };
+    QHash<u64, GameHistoryEntry> game_history;
+    QSet<u64> known_library_titles;
+    QSet<u64> observed_library_titles;
+    bool history_baseline_pending = true;
+    bool history_dirty = false;
+    QPointer<TrailerPlayerDialog> trailer_player;
     QAbstractItemView* m_currentView = tree_view;
 };
 

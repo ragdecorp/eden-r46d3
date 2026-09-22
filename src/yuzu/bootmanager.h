@@ -8,6 +8,7 @@
 
 #include <condition_variable>
 #include <cstddef>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <utility>
@@ -205,7 +206,8 @@ public:
 
     bool IsLoadingComplete() const;
 
-    void CaptureScreenshot(const QString& screenshot_path);
+    bool CaptureScreenshot(const QString& screenshot_path,
+                           std::function<void(bool)> completion_callback = {});
 
     /**
      * Instructs the window to re-launch the application using the specified program_index.

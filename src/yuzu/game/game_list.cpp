@@ -1,10 +1,16 @@
 // SPDX-FileCopyrightText: Copyright 2026 Eden Emulator Project
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include <algorithm>
+#include <array>
+
 #include <QAbstractItemView>
 #include <QApplication>
+#include <QByteArray>
+#include <QDesktopServices>
 #include <QDir>
 #include <QFileInfo>
+#include <QFutureWatcher>
 #include <QHeaderView>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -12,30 +18,187 @@
 #include <QList>
 #include <QListView>
 #include <QMenu>
+#include <QMessageBox>
+#include <QPersistentModelIndex>
+#include <QRegularExpression>
 #include <QScrollBar>
+#include <QSaveFile>
 #include <QScroller>
 #include <QScrollerProperties>
 #include <QThreadPool>
 #include <QToolButton>
+#include <QUrl>
 #include <QVariantAnimation>
+#include <QtConcurrentRun>
 #include <fmt/ranges.h>
 #include <qnamespace.h>
 #include "common/common_types.h"
+#include "common/fs/fs.h"
+#include "common/fs/path_util.h"
 #include "common/logging.h"
 #include "common/settings.h"
 #include "core/core.h"
 #include "core/file_sys/patch_manager.h"
 #include "core/file_sys/registered_cache.h"
+#include "core/memory/cheat_engine.h"
 #include "game/game_card.h"
 #include "qt_common/config/uisettings.h"
 #include "qt_common/qt_common.h"
 #include "qt_common/util/game.h"
 #include "yuzu/compatibility_list.h"
+#include "yuzu/game/cheat_availability_manager.h"
+#include "yuzu/game/cheat_selection_dialog.h"
 #include "yuzu/game/game_list.h"
+#include "yuzu/game/game_metadata_manager.h"
+#include "yuzu/game/game_update_manager.h"
 #include "yuzu/game/game_list_p.h"
 #include "yuzu/game/game_list_worker.h"
+#include "yuzu/game/trailer_player_dialog.h"
 #include "yuzu/main_window.h"
 #include "yuzu/util/controller_navigation.h"
+#include "web_service/youtube_trailer.h"
+#include "web_service/cheatslips.h"
+
+namespace {
+
+constexpr int LibraryHistoryVersion = 1;
+
+QStringList SplitMetadataValues(const QString& value) {
+    return value.split(QRegularExpression{QStringLiteral("[,;]")}, Qt::SkipEmptyParts);
+}
+
+int PlayerSortValue(const QString& value) {
+    static const QRegularExpression number_pattern{QStringLiteral("(\\d+)")};
+    int maximum = 0;
+    auto matches = number_pattern.globalMatch(value);
+    while (matches.hasNext()) {
+        maximum = std::max(maximum, matches.next().captured(1).toInt());
+    }
+    return maximum;
+}
+
+QString PathToQString(const std::filesystem::path& path) {
+    return QString::fromStdString(Common::FS::PathToUTF8String(path));
+}
+
+QString LibraryHistoryPath() {
+    return PathToQString(Common::FS::GetEdenPath(Common::FS::EdenPath::ConfigDir) /
+                         "game_library_history.json");
+}
+
+QString TitleIdToString(u64 title_id) {
+    return QStringLiteral("%1").arg(title_id, 16, 16, QLatin1Char{'0'}).toUpper();
+}
+
+void SetHistoryDateItem(QStandardItem* item, const QDateTime& utc_date_time) {
+    if (item == nullptr) {
+        return;
+    }
+    if (!utc_date_time.isValid()) {
+        item->setText(QString{});
+        item->setData(QVariant::fromValue<qlonglong>(0), GameListItem::SortRole);
+        item->setToolTip(QString{});
+        return;
+    }
+
+    const QDateTime local_date_time = utc_date_time.toLocalTime();
+    item->setText(local_date_time.toString(QStringLiteral("dd/MM/yyyy")));
+    item->setData(QVariant::fromValue<qlonglong>(utc_date_time.toMSecsSinceEpoch()),
+                  GameListItem::SortRole);
+    item->setToolTip(local_date_time.toString(QStringLiteral("dd/MM/yyyy HH:mm:ss")));
+}
+
+void SetCreatedDateItem(QStandardItem* item, const QString& iso_date) {
+    if (item == nullptr) {
+        return;
+    }
+    const QDate date = QDate::fromString(iso_date.left(10), Qt::ISODate);
+    if (!date.isValid()) {
+        item->setText(QString{});
+        item->setData(0, GameListItem::SortRole);
+        item->setToolTip(QString{});
+        return;
+    }
+    item->setText(date.toString(QStringLiteral("dd/MM/yyyy")));
+    item->setData(date.toJulianDay(), GameListItem::SortRole);
+    item->setToolTip(QObject::tr("Market release date: %1")
+                         .arg(date.toString(QStringLiteral("dd/MM/yyyy"))));
+}
+
+void MoveColumnAfter(QHeaderView* header, int column, int preceding_column) {
+    const int current_index = header->visualIndex(column);
+    const int target_index = header->visualIndex(preceding_column) + 1;
+    if (current_index >= 0 && target_index >= 0 && current_index != target_index) {
+        header->moveSection(current_index, target_index);
+    }
+}
+
+QString SafeCheatDirectoryName(const WebService::CheatCode& cheat) {
+    QString name = QString::fromUtf8(cheat.name.data(), static_cast<qsizetype>(cheat.name.size()))
+                       .trimmed();
+    name.replace(QRegularExpression{QStringLiteral(R"([<>:"/\\|?*\x00-\x1F])")},
+                 QStringLiteral("_"));
+    name = name.simplified();
+    if (name.isEmpty()) {
+        name = QStringLiteral("Cheat");
+    }
+    name = name.left(70).trimmed();
+    return QStringLiteral("CheatSlips - %1 - %2-%3")
+        .arg(name)
+        .arg(cheat.submission_id)
+        .arg(cheat.block_index);
+}
+
+bool InstallCheatCodes(u64 title_id, const QString& build_id,
+                       const std::vector<WebService::CheatCode>& cheats,
+                       const QVector<int>& selected_indices, QStringList& installed_packages,
+                       QString& error_message) {
+    const QString title_id_string =
+        QStringLiteral("%1").arg(title_id, 16, 16, QLatin1Char{'0'}).toUpper();
+    const QString load_root =
+        PathToQString(Common::FS::GetEdenPath(Common::FS::EdenPath::LoadDir));
+    const Core::Memory::TextCheatParser parser;
+
+    for (const int selected_index : selected_indices) {
+        if (selected_index < 0 || static_cast<std::size_t>(selected_index) >= cheats.size()) {
+            error_message = GameList::tr("The selected cheat is invalid.");
+            return false;
+        }
+        const auto& cheat = cheats[static_cast<std::size_t>(selected_index)];
+        const auto parsed = parser.Parse(cheat.content);
+        const bool has_opcodes = std::ranges::any_of(parsed, [](const auto& entry) {
+            return entry.definition.num_opcodes > 0;
+        });
+        if (parsed.empty() || !has_opcodes) {
+            error_message = GameList::tr("Cheat '%1' has an invalid code format.")
+                                .arg(QString::fromUtf8(
+                                    cheat.name.data(), static_cast<qsizetype>(cheat.name.size())));
+            return false;
+        }
+
+        const QString package_name = SafeCheatDirectoryName(cheat);
+        const QString cheats_directory =
+            QDir{load_root}.filePath(title_id_string + QLatin1Char{'/'} + package_name +
+                                     QStringLiteral("/cheats"));
+        if (!QDir{}.mkpath(cheats_directory)) {
+            error_message = GameList::tr("Could not create the cheat directory.");
+            return false;
+        }
+
+        QSaveFile output{QDir{cheats_directory}.filePath(build_id.toUpper() +
+                                                         QStringLiteral(".txt"))};
+        const QByteArray content = QByteArray::fromStdString(cheat.content);
+        if (!output.open(QIODevice::WriteOnly) || output.write(content) != content.size() ||
+            !output.commit()) {
+            error_message = GameList::tr("Could not save the selected cheat.");
+            return false;
+        }
+        installed_packages.append(package_name);
+    }
+    return true;
+}
+
+} // Anonymous namespace
 
 GameListSearchField::KeyReleaseEater::KeyReleaseEater(GameList* gamelist_, QObject* parent)
     : QObject(parent), gamelist{gamelist_} {}
@@ -226,8 +389,17 @@ void GameList::OnTextChanged(const QString& new_text) {
             const QString file_path =
                 item->data(GameListItemPath::FullPathRole).toString().toLower();
             const QString file_title = item->data(GameListItemPath::TitleRole).toString().toLower();
-            const QString file_name = file_path.mid(file_path.lastIndexOf(QLatin1Char{'/'}) + 1) +
-                                      QLatin1Char{' '} + file_title;
+            const QString file_name =
+                file_path.mid(file_path.lastIndexOf(QLatin1Char{'/'}) + 1) + QLatin1Char{' '} +
+                file_title + QLatin1Char{' '} +
+                item_model->item(i, COLUMN_GENRE)->text().toLower() + QLatin1Char{' '} +
+                item_model->item(i, COLUMN_TAGS)->text().toLower() + QLatin1Char{' '} +
+                item_model->item(i, COLUMN_BUILD_ID)->text().toLower() + QLatin1Char{' '} +
+                item_model->item(i, COLUMN_CHEATS)->text().toLower() + QLatin1Char{' '} +
+                item_model->item(i, COLUMN_UPDATE_STATUS)->text().toLower() + QLatin1Char{' '} +
+                item_model->item(i, COLUMN_LAST_PLAYED)->text().toLower() + QLatin1Char{' '} +
+                item_model->item(i, COLUMN_DATE_ADDED)->text().toLower() + QLatin1Char{' '} +
+                item_model->item(i, COLUMN_CREATED)->text().toLower();
 
             if (edit_filter_text.isEmpty() || ContainsAllWords(file_name, edit_filter_text)) {
                 hide(i, false);
@@ -277,7 +449,15 @@ void GameList::OnTextChanged(const QString& new_text) {
                 // multiple conversions of edit_filter_text for each game in the gamelist
                 const QString file_name =
                     file_path.mid(file_path.lastIndexOf(QLatin1Char{'/'}) + 1) + QLatin1Char{' '} +
-                    file_title;
+                    file_title + QLatin1Char{' '} +
+                    folder->child(j, COLUMN_GENRE)->text().toLower() + QLatin1Char{' '} +
+                    folder->child(j, COLUMN_TAGS)->text().toLower() + QLatin1Char{' '} +
+                    folder->child(j, COLUMN_BUILD_ID)->text().toLower() + QLatin1Char{' '} +
+                    folder->child(j, COLUMN_CHEATS)->text().toLower() + QLatin1Char{' '} +
+                    folder->child(j, COLUMN_UPDATE_STATUS)->text().toLower() + QLatin1Char{' '} +
+                    folder->child(j, COLUMN_LAST_PLAYED)->text().toLower() + QLatin1Char{' '} +
+                    folder->child(j, COLUMN_DATE_ADDED)->text().toLower() + QLatin1Char{' '} +
+                    folder->child(j, COLUMN_CREATED)->text().toLower();
                 if (ContainsAllWords(file_name, edit_filter_text) ||
                     (file_program_id.size() == 16 && file_program_id.contains(edit_filter_text))) {
                     hide(j, false, folder_index);
@@ -377,8 +557,13 @@ GameList::GameList(FileSys::VirtualFilesystem vfs_, FileSys::ManualContentProvid
     list_view->setItemDelegate(m_gameCard);
 
     controller_navigation = new ControllerNavigation(system.HIDCore(), this);
+    controller_navigation->MapButton(Settings::NativeButton::R, Qt::Key_R);
     search_field = new GameListSearchField(this);
     item_model = new QStandardItemModel(tree_view);
+    cheat_availability_manager = new CheatAvailabilityManager(this);
+    metadata_manager = new GameMetadataManager(this);
+    game_update_manager = new GameUpdateManager(this);
+    LoadLibraryHistory();
     tree_view->setModel(item_model);
     list_view->setModel(item_model);
 
@@ -420,6 +605,18 @@ GameList::GameList(FileSys::VirtualFilesystem vfs_, FileSys::ManualContentProvid
     list_view->setWrapping(true);
 
     item_model->insertColumns(0, COLUMN_COUNT);
+    tree_view->header()->moveSection(tree_view->header()->visualIndex(COLUMN_TRAILER), 1);
+    tree_view->header()->moveSection(tree_view->header()->visualIndex(COLUMN_PLAYERS), 2);
+    tree_view->header()->moveSection(tree_view->header()->visualIndex(COLUMN_GENRE), 3);
+    tree_view->header()->moveSection(tree_view->header()->visualIndex(COLUMN_TAGS), 4);
+    tree_view->header()->moveSection(tree_view->header()->visualIndex(COLUMN_BUILD_ID), 5);
+    tree_view->header()->moveSection(tree_view->header()->visualIndex(COLUMN_CHEATS), 6);
+    MoveColumnAfter(tree_view->header(), COLUMN_LAST_PLAYED, COLUMN_PLAY_TIME);
+    MoveColumnAfter(tree_view->header(), COLUMN_DATE_ADDED, COLUMN_LAST_PLAYED);
+    MoveColumnAfter(tree_view->header(), COLUMN_CREATED, COLUMN_DATE_ADDED);
+    tree_view->header()->moveSection(
+        tree_view->header()->visualIndex(COLUMN_UPDATE_STATUS),
+        tree_view->header()->visualIndex(COLUMN_ADD_ONS) + 1);
     RetranslateUI();
 
     tree_view->setColumnHidden(COLUMN_ADD_ONS, !UISettings::values.show_add_ons);
@@ -429,11 +626,24 @@ GameList::GameList(FileSys::VirtualFilesystem vfs_, FileSys::ManualContentProvid
 
     connect(main_window, &MainWindow::UpdateThemedIcons, this, &GameList::OnUpdateThemedIcons);
 
+    connect(tree_view, &QTreeView::clicked, this, &GameList::OnItemClicked);
+    connect(tree_view, &QTreeView::doubleClicked, this, &GameList::OnItemDoubleClicked);
     connect(tree_view, &QTreeView::activated, this, &GameList::ValidateEntry);
     connect(tree_view, &QTreeView::customContextMenuRequested, this, &GameList::PopupContextMenu);
 
     connect(list_view, &QListView::activated, this, &GameList::ValidateEntry);
     connect(list_view, &QListView::customContextMenuRequested, this, &GameList::PopupContextMenu);
+
+    connect(item_model, &QStandardItemModel::itemChanged, this,
+            &GameList::OnMetadataItemChanged);
+    connect(metadata_manager, &GameMetadataManager::MetadataChanged, this,
+            &GameList::UpdateMetadataRows);
+    connect(cheat_availability_manager, &CheatAvailabilityManager::AvailabilityChanged, this,
+            &GameList::UpdateCheatRows);
+    connect(game_update_manager, &GameUpdateManager::VersionsChanged, this,
+            [this] { UpdateGameUpdateRows(); });
+    connect(game_update_manager, &GameUpdateManager::FriendlyVersionChanged, this,
+            &GameList::UpdateGameUpdateRows);
 
     connect(tree_view, &QTreeView::expanded, this, &GameList::OnItemExpanded);
     connect(tree_view, &QTreeView::collapsed, this, &GameList::OnItemExpanded);
@@ -444,6 +654,13 @@ GameList::GameList(FileSys::VirtualFilesystem vfs_, FileSys::ManualContentProvid
                     return;
                 }
                 if (!this->isActiveWindow()) {
+                    return;
+                }
+                if (key == Qt::Key_R) {
+                    const QModelIndex selected = m_currentView->currentIndex();
+                    if (selected.isValid()) {
+                        OpenTrailerForItem(selected);
+                    }
                     return;
                 }
                 QKeyEvent* event = new QKeyEvent(QEvent::KeyPress, key, Qt::NoModifier);
@@ -523,6 +740,9 @@ void GameList::ResetViewMode() {
 }
 
 GameList::~GameList() {
+    if (history_dirty) {
+        SaveLibraryHistory();
+    }
     UnloadController();
 }
 
@@ -555,14 +775,696 @@ void GameList::AddDirEntry(GameListDir* entry_items) {
 }
 
 void GameList::AddEntry(const QList<QStandardItem*>& entry_items, GameListDir* parent) {
-    if (!m_isTreeMode)
+    if (!m_isTreeMode) {
         item_model->invisibleRootItem()->appendRow(entry_items);
-    else
+    } else {
         parent->appendRow(entry_items);
+    }
+
+    const auto* name_item = entry_items.value(COLUMN_NAME);
+    if (name_item == nullptr) {
+        return;
+    }
+    const u64 title_id = name_item->data(GameListItemPath::ProgramIdRole).toULongLong();
+    const QString build_id = name_item->data(GameListItemPath::BuildIdRole).toString();
+    PopulateHistoryItems(entry_items, title_id);
+    game_update_manager->RequestRefresh(
+        title_id, name_item->data(GameListItemPath::TitleRole).toString(),
+        static_cast<u32>(
+            name_item->data(GameListItemPath::InstalledUpdateVersionRole).toUInt()),
+        name_item->data(GameListItemPath::InstalledUpdateComparableRole).toBool());
+    metadata_manager->RequestMetadata(title_id);
+    UpdateMetadataRows(title_id);
+    UpdateCheatRows(title_id, build_id);
+    UpdateGameUpdateRows(title_id);
+}
+
+void GameList::LoadLibraryHistory() {
+    QFile file{LibraryHistoryPath()};
+    if (!file.open(QIODevice::ReadOnly)) {
+        return;
+    }
+
+    QJsonParseError error;
+    const QJsonDocument document = QJsonDocument::fromJson(file.readAll(), &error);
+    if (error.error != QJsonParseError::NoError || !document.isObject()) {
+        LOG_WARNING(Frontend, "Ignoring invalid game library history");
+        return;
+    }
+
+    const QJsonObject root = document.object();
+    if (root.value(QStringLiteral("version")).toInt() != LibraryHistoryVersion) {
+        LOG_WARNING(Frontend, "Ignoring unsupported game library history version");
+        return;
+    }
+
+    history_baseline_pending =
+        !root.value(QStringLiteral("baseline_initialized")).toBool(false);
+    for (const QJsonValue& value : root.value(QStringLiteral("known_titles")).toArray()) {
+        bool valid = false;
+        const u64 title_id = value.toString().toULongLong(&valid, 16);
+        if (valid && title_id != 0) {
+            known_library_titles.insert(title_id);
+        }
+    }
+
+    const QJsonObject games = root.value(QStringLiteral("games")).toObject();
+    for (auto it = games.begin(); it != games.end(); ++it) {
+        bool valid = false;
+        const u64 title_id = it.key().toULongLong(&valid, 16);
+        if (!valid || title_id == 0 || !it.value().isObject()) {
+            continue;
+        }
+        const QJsonObject game = it.value().toObject();
+        game_history.insert(
+            title_id,
+            GameHistoryEntry{
+                .added_at = QDateTime::fromString(
+                    game.value(QStringLiteral("added_at")).toString(), Qt::ISODateWithMs),
+                .last_played_at = QDateTime::fromString(
+                    game.value(QStringLiteral("last_played_at")).toString(),
+                    Qt::ISODateWithMs),
+            });
+        known_library_titles.insert(title_id);
+    }
+}
+
+void GameList::SaveLibraryHistory() {
+    QList<u64> known_titles = known_library_titles.values();
+    std::ranges::sort(known_titles);
+
+    QJsonArray known_titles_json;
+    for (const u64 title_id : known_titles) {
+        known_titles_json.append(TitleIdToString(title_id));
+    }
+
+    QJsonObject games;
+    for (auto it = game_history.cbegin(); it != game_history.cend(); ++it) {
+        QJsonObject game;
+        if (it->added_at.isValid()) {
+            game.insert(QStringLiteral("added_at"),
+                        it->added_at.toUTC().toString(Qt::ISODateWithMs));
+        }
+        if (it->last_played_at.isValid()) {
+            game.insert(QStringLiteral("last_played_at"),
+                        it->last_played_at.toUTC().toString(Qt::ISODateWithMs));
+        }
+        if (!game.isEmpty()) {
+            games.insert(TitleIdToString(it.key()), game);
+        }
+    }
+
+    const QString path = LibraryHistoryPath();
+    QDir{}.mkpath(QFileInfo{path}.absolutePath());
+    QSaveFile file{path};
+    const QJsonObject root{
+        {QStringLiteral("version"), LibraryHistoryVersion},
+        {QStringLiteral("baseline_initialized"), !history_baseline_pending},
+        {QStringLiteral("known_titles"), known_titles_json},
+        {QStringLiteral("games"), games},
+    };
+    if (!file.open(QIODevice::WriteOnly) ||
+        file.write(QJsonDocument{root}.toJson(QJsonDocument::Indented)) < 0 || !file.commit()) {
+        LOG_WARNING(Frontend, "Failed to save game library history");
+        return;
+    }
+    history_dirty = false;
+}
+
+void GameList::PopulateHistoryItems(const QList<QStandardItem*>& entry_items, u64 title_id) {
+    if (title_id == 0) {
+        return;
+    }
+
+    observed_library_titles.insert(title_id);
+    if (!known_library_titles.contains(title_id)) {
+        known_library_titles.insert(title_id);
+        if (!history_baseline_pending) {
+            game_history[title_id].added_at = QDateTime::currentDateTimeUtc();
+        }
+        history_dirty = true;
+    }
+
+    const GameHistoryEntry history = game_history.value(title_id);
+    SetHistoryDateItem(entry_items.value(COLUMN_LAST_PLAYED), history.last_played_at);
+    SetHistoryDateItem(entry_items.value(COLUMN_DATE_ADDED), history.added_at);
+}
+
+void GameList::UpdateHistoryRows(u64 title_id) {
+    const GameHistoryEntry history = game_history.value(title_id);
+    const auto update_children = [&](const auto& self, QStandardItem* parent) -> void {
+        for (int row = 0; row < parent->rowCount(); ++row) {
+            QStandardItem* const name_item = parent->child(row, COLUMN_NAME);
+            if (name_item == nullptr) {
+                continue;
+            }
+            if (name_item->data(GameListItem::TypeRole).value<GameListItemType>() ==
+                    GameListItemType::Game &&
+                name_item->data(GameListItemPath::ProgramIdRole).toULongLong() == title_id) {
+                SetHistoryDateItem(parent->child(row, COLUMN_LAST_PLAYED),
+                                   history.last_played_at);
+                SetHistoryDateItem(parent->child(row, COLUMN_DATE_ADDED), history.added_at);
+            }
+            if (name_item->hasChildren()) {
+                self(self, name_item);
+            }
+        }
+    };
+    update_children(update_children, item_model->invisibleRootItem());
+
+    const int sort_column = tree_view->header()->sortIndicatorSection();
+    if (sort_column == COLUMN_LAST_PLAYED || sort_column == COLUMN_DATE_ADDED) {
+        item_model->sort(sort_column, tree_view->header()->sortIndicatorOrder());
+    }
+}
+
+void GameList::RecordGameStarted(u64 title_id) {
+    if (title_id == 0) {
+        return;
+    }
+
+    const bool is_new_title = !known_library_titles.contains(title_id);
+    known_library_titles.insert(title_id);
+    observed_library_titles.insert(title_id);
+    GameHistoryEntry& history = game_history[title_id];
+    if (is_new_title && !history_baseline_pending) {
+        history.added_at = QDateTime::currentDateTimeUtc();
+    }
+    history.last_played_at = QDateTime::currentDateTimeUtc();
+    history_dirty = true;
+    SaveLibraryHistory();
+    UpdateHistoryRows(title_id);
+}
+
+void GameList::OnItemClicked(const QModelIndex& item) {
+    if (!item.isValid()) {
+        return;
+    }
+    if (item.column() == COLUMN_TRAILER) {
+        OpenTrailerForItem(item);
+    } else if (item.column() == COLUMN_CHEATS) {
+        OpenCheatsForItem(item);
+    } else if (item.column() == COLUMN_UPDATE_STATUS) {
+        const QModelIndex selected = item.sibling(item.row(), COLUMN_NAME);
+        if (selected.data(GameListItem::TypeRole).value<GameListItemType>() ==
+            GameListItemType::Game) {
+            game_update_manager->RequestRefresh(
+                selected.data(GameListItemPath::ProgramIdRole).toULongLong(),
+                selected.data(GameListItemPath::TitleRole).toString(),
+                static_cast<u32>(
+                    selected.data(GameListItemPath::InstalledUpdateVersionRole).toUInt()),
+                selected.data(GameListItemPath::InstalledUpdateComparableRole).toBool());
+        }
+    } else if (item.column() == COLUMN_TAGS && m_isTreeMode) {
+        tree_view->edit(item);
+    }
+}
+
+void GameList::OpenCheatsForItem(const QModelIndex& item) {
+    if (!item.isValid() || cheat_download_in_progress) {
+        return;
+    }
+
+    const QModelIndex selected = item.sibling(item.row(), COLUMN_NAME);
+    if (selected.data(GameListItem::TypeRole).value<GameListItemType>() !=
+        GameListItemType::Game) {
+        return;
+    }
+    const u64 title_id = selected.data(GameListItemPath::ProgramIdRole).toULongLong();
+    const QString build_id =
+        selected.data(GameListItemPath::BuildIdRole).toString().trimmed().toUpper();
+    const auto state = cheat_availability_manager->GetState(title_id, build_id);
+    if (build_id.isEmpty()) {
+        QMessageBox::warning(this, tr("Cheats"),
+                             tr("The Build ID for this game could not be determined."));
+        return;
+    }
+    if (state == CheatAvailabilityManager::State::Unknown ||
+        state == CheatAvailabilityManager::State::NetworkError) {
+        cheat_availability_manager->RequestAvailability(title_id, build_id);
+        UpdateCheatRows(title_id, build_id);
+        return;
+    }
+    if (state == CheatAvailabilityManager::State::Pending) {
+        QMessageBox::information(this, tr("Cheats"),
+                                 tr("Eden is still checking cheats for this game."));
+        return;
+    }
+    if (state != CheatAvailabilityManager::State::Available) {
+        QMessageBox::information(
+            this, tr("Cheats"),
+            tr("No cheats were found for this exact Title ID and Build ID."));
+        return;
+    }
+
+    QString game_name = selected.data(GameListItemPath::TitleRole).toString().trimmed();
+    if (game_name.isEmpty()) {
+        game_name = QFileInfo{selected.data(GameListItemPath::FullPathRole).toString()}
+                        .completeBaseName();
+    }
+
+    cheat_download_in_progress = true;
+    const QPersistentModelIndex cheats_item{item.sibling(item.row(), COLUMN_CHEATS)};
+    item_model->setData(cheats_item, tr("Downloading..."));
+    const auto credential_directory =
+        Common::FS::GetEdenPath(Common::FS::EdenPath::ConfigDir) / "cheats";
+    auto* cheat_watcher = new QFutureWatcher<WebService::CheatCatalogResult>{this};
+    connect(cheat_watcher, &QFutureWatcher<WebService::CheatCatalogResult>::finished, this,
+            [this, cheat_watcher, title_id, build_id, game_name] {
+                const WebService::CheatCatalogResult result = cheat_watcher->result();
+                cheat_watcher->deleteLater();
+                cheat_download_in_progress = false;
+                UpdateCheatRows(title_id, build_id);
+
+                if (result.code != WebService::CheatCatalogResultCode::Success) {
+                    QString message;
+                    switch (result.code) {
+                    case WebService::CheatCatalogResultCode::CredentialsMissing:
+                        message = tr("The portable CheatSlips token file was not found.");
+                        break;
+                    case WebService::CheatCatalogResultCode::InvalidCredentials:
+                        message = tr("The CheatSlips API token is invalid.");
+                        break;
+                    case WebService::CheatCatalogResultCode::QuotaExceeded:
+                        message = tr("The CheatSlips download quota has been reached for today.");
+                        break;
+                    case WebService::CheatCatalogResultCode::NotFound:
+                        message = tr("No cheats were found for this exact Title ID and Build ID.");
+                        break;
+                    case WebService::CheatCatalogResultCode::NetworkError:
+                        message = tr("Could not connect to CheatSlips.");
+                        break;
+                    case WebService::CheatCatalogResultCode::InvalidResponse:
+                        message = tr("CheatSlips returned an invalid response.");
+                        break;
+                    case WebService::CheatCatalogResultCode::Success:
+                        break;
+                    }
+                    QMessageBox::warning(this, tr("Cheats"), message);
+                    return;
+                }
+
+                CheatSelectionDialog dialog{game_name, title_id, build_id, result.cheats, this};
+                if (dialog.exec() != QDialog::Accepted) {
+                    return;
+                }
+
+                QStringList installed_packages;
+                QString error_message;
+                if (!InstallCheatCodes(title_id, build_id, result.cheats,
+                                       dialog.SelectedIndices(), installed_packages,
+                                       error_message)) {
+                    QMessageBox::critical(this, tr("Cheats"), error_message);
+                    return;
+                }
+
+                auto& disabled_addons = Settings::values.disabled_addons[title_id];
+                for (const QString& package : installed_packages) {
+                    std::erase(disabled_addons, package.toStdString());
+                }
+                Common::FS::RemoveFile(
+                    Common::FS::GetEdenPath(Common::FS::EdenPath::CacheDir) / "game_list" /
+                    fmt::format("{:016X}.pv.txt", title_id));
+                emit SaveConfig();
+
+                QMessageBox::information(
+                    this, tr("Cheats"),
+                    tr("Installed %n cheat(s) for Build ID %1.", nullptr,
+                       installed_packages.size())
+                        .arg(build_id));
+            });
+    cheat_watcher->setFuture(QtConcurrent::run(
+        [credential_directory, title_id, build_id_string = build_id.toStdString()] {
+            return WebService::FetchCheatCatalog(credential_directory, title_id,
+                                                 build_id_string);
+        }));
+}
+
+void GameList::OnItemDoubleClicked(const QModelIndex& item) {
+    if (!item.isValid() || !m_isTreeMode) {
+        return;
+    }
+    if (item.column() == COLUMN_PLAYERS || item.column() == COLUMN_GENRE) {
+        tree_view->edit(item);
+    }
+}
+
+void GameList::OnMetadataItemChanged(QStandardItem* item) {
+    if (metadata_update_in_progress || item == nullptr ||
+        (item->column() != COLUMN_PLAYERS && item->column() != COLUMN_GENRE &&
+         item->column() != COLUMN_TAGS)) {
+        return;
+    }
+
+    const QModelIndex name_index = item->index().siblingAtColumn(COLUMN_NAME);
+    if (name_index.data(GameListItem::TypeRole).value<GameListItemType>() !=
+        GameListItemType::Game) {
+        return;
+    }
+    const u64 title_id = name_index.data(GameListItemPath::ProgramIdRole).toULongLong();
+    switch (item->column()) {
+    case COLUMN_PLAYERS:
+        metadata_manager->SetPlayersOverride(title_id, item->text());
+        break;
+    case COLUMN_GENRE:
+        metadata_manager->SetGenresOverride(title_id, SplitMetadataValues(item->text()));
+        break;
+    case COLUMN_TAGS:
+        metadata_manager->SetTags(title_id, SplitMetadataValues(item->text()));
+        break;
+    default:
+        break;
+    }
+}
+
+void GameList::UpdateMetadataRows(u64 title_id) {
+    const QString players = metadata_manager->Players(title_id);
+    const QString genres = metadata_manager->Genres(title_id).join(QStringLiteral(", "));
+    const QString tags = metadata_manager->Tags(title_id).join(QStringLiteral(", "));
+    const QString release_date = metadata_manager->ReleaseDate(title_id);
+    const bool pending = metadata_manager->IsPending(title_id);
+    const bool has_metadata = metadata_manager->HasMetadata(title_id);
+    const QString unavailable = pending ? QStringLiteral("\u2026") : QStringLiteral("?");
+
+    metadata_update_in_progress = true;
+    const auto update_children = [&](const auto& self, QStandardItem* parent) -> void {
+        for (int row = 0; row < parent->rowCount(); ++row) {
+            QStandardItem* const name_item = parent->child(row, COLUMN_NAME);
+            if (name_item == nullptr) {
+                continue;
+            }
+            if (name_item->data(GameListItem::TypeRole).value<GameListItemType>() ==
+                    GameListItemType::Game &&
+                name_item->data(GameListItemPath::ProgramIdRole).toULongLong() == title_id) {
+                QStandardItem* const players_item = parent->child(row, COLUMN_PLAYERS);
+                QStandardItem* const genre_item = parent->child(row, COLUMN_GENRE);
+                QStandardItem* const tags_item = parent->child(row, COLUMN_TAGS);
+                QStandardItem* const created_item = parent->child(row, COLUMN_CREATED);
+                if (players_item != nullptr) {
+                    const QString display = players.isEmpty() && !has_metadata ? unavailable : players;
+                    players_item->setText(display);
+                    players_item->setData(PlayerSortValue(players), GameListItem::SortRole);
+                }
+                if (genre_item != nullptr) {
+                    const QString display = genres.isEmpty() && !has_metadata ? unavailable : genres;
+                    genre_item->setText(display);
+                    genre_item->setData(genres.toLower(), GameListItem::SortRole);
+                    genre_item->setToolTip(genres);
+                }
+                if (tags_item != nullptr) {
+                    tags_item->setText(tags);
+                    tags_item->setData(tags.toLower(), GameListItem::SortRole);
+                    tags_item->setToolTip(tags);
+                }
+                SetCreatedDateItem(created_item, release_date);
+            }
+            if (name_item->hasChildren()) {
+                self(self, name_item);
+            }
+        }
+    };
+    update_children(update_children, item_model->invisibleRootItem());
+    metadata_update_in_progress = false;
+
+    const int sort_column = tree_view->header()->sortIndicatorSection();
+    if (sort_column == COLUMN_PLAYERS || sort_column == COLUMN_GENRE ||
+        sort_column == COLUMN_TAGS || sort_column == COLUMN_CREATED) {
+        item_model->sort(sort_column, tree_view->header()->sortIndicatorOrder());
+    }
+    if (!search_field->filterText().isEmpty()) {
+        OnTextChanged(search_field->filterText());
+    }
+}
+
+void GameList::UpdateCheatRows(u64 title_id, const QString& build_id) {
+    const QString normalized_build_id = build_id.trimmed().toUpper();
+    const auto state = cheat_availability_manager->GetState(title_id, normalized_build_id);
+    const int cheat_count = cheat_availability_manager->CheatCount(title_id, normalized_build_id);
+
+    QString display;
+    int sort_value = -1;
+    if (normalized_build_id.isEmpty()) {
+        display = tr("Build ID required");
+    } else {
+        switch (state) {
+        case CheatAvailabilityManager::State::Pending:
+            display = tr("Checking...");
+            break;
+        case CheatAvailabilityManager::State::Available:
+            display = tr("Available (%1)").arg(cheat_count);
+            sort_value = cheat_count;
+            break;
+        case CheatAvailabilityManager::State::NotFound:
+            display = tr("Not available");
+            sort_value = 0;
+            break;
+        case CheatAvailabilityManager::State::NetworkError:
+            display = tr("Connection error");
+            break;
+        case CheatAvailabilityManager::State::Unknown:
+            display = tr("Not checked");
+            break;
+        }
+    }
+
+    const auto update_children = [&](const auto& self, QStandardItem* parent) -> void {
+        for (int row = 0; row < parent->rowCount(); ++row) {
+            QStandardItem* const name_item = parent->child(row, COLUMN_NAME);
+            if (name_item == nullptr) {
+                continue;
+            }
+            if (name_item->data(GameListItem::TypeRole).value<GameListItemType>() ==
+                    GameListItemType::Game &&
+                name_item->data(GameListItemPath::ProgramIdRole).toULongLong() == title_id &&
+                name_item->data(GameListItemPath::BuildIdRole).toString().compare(
+                    normalized_build_id, Qt::CaseInsensitive) == 0) {
+                if (QStandardItem* const cheats_item = parent->child(row, COLUMN_CHEATS);
+                    cheats_item != nullptr) {
+                    cheats_item->setText(display);
+                    cheats_item->setData(sort_value, GameListItem::SortRole);
+                    if (!normalized_build_id.isEmpty()) {
+                        cheats_item->setToolTip(
+                            tr("Exact match: Title ID %1 / Build ID %2")
+                                .arg(QStringLiteral("%1")
+                                         .arg(title_id, 16, 16, QLatin1Char{'0'})
+                                         .toUpper(),
+                                     normalized_build_id));
+                    }
+                }
+            }
+            if (name_item->hasChildren()) {
+                self(self, name_item);
+            }
+        }
+    };
+    update_children(update_children, item_model->invisibleRootItem());
+
+    if (tree_view->header()->sortIndicatorSection() == COLUMN_CHEATS) {
+        item_model->sort(COLUMN_CHEATS, tree_view->header()->sortIndicatorOrder());
+    }
+    if (!search_field->filterText().isEmpty()) {
+        OnTextChanged(search_field->filterText());
+    }
+}
+
+void GameList::UpdateGameUpdateRows(u64 title_id) {
+    const auto update_children = [&](const auto& self, QStandardItem* parent) -> void {
+        for (int row = 0; row < parent->rowCount(); ++row) {
+            QStandardItem* const name_item = parent->child(row, COLUMN_NAME);
+            if (name_item == nullptr) {
+                continue;
+            }
+
+            const bool is_game =
+                name_item->data(GameListItem::TypeRole).value<GameListItemType>() ==
+                GameListItemType::Game;
+            const u64 row_title_id =
+                name_item->data(GameListItemPath::ProgramIdRole).toULongLong();
+            if (is_game && (title_id == 0 || row_title_id == title_id)) {
+                QStandardItem* const status_item = parent->child(row, COLUMN_UPDATE_STATUS);
+                if (status_item != nullptr) {
+                    const u32 installed_version = static_cast<u32>(
+                        name_item->data(GameListItemPath::InstalledUpdateVersionRole).toUInt());
+                    const bool installed_comparable =
+                        name_item->data(GameListItemPath::InstalledUpdateComparableRole).toBool();
+                    const QString installed_display =
+                        name_item->data(GameListItemPath::InstalledUpdateDisplayRole).toString();
+                    const auto state = game_update_manager->GetState(
+                        row_title_id, installed_version, installed_comparable);
+                    const auto latest = game_update_manager->GetLatestVersion(row_title_id);
+                    const QString friendly = game_update_manager->FriendlyVersion(
+                        row_title_id, latest.numeric_version);
+                    const QString numeric_display =
+                        QStringLiteral("v%1").arg(latest.numeric_version);
+                    const QString latest_display =
+                        friendly.isEmpty()
+                            ? numeric_display
+                            : QStringLiteral("%1 | %2").arg(numeric_display, friendly);
+
+                    QString display;
+                    int sort_value{};
+                    switch (state) {
+                    case GameUpdateManager::State::Checking:
+                        display = tr("Checking...");
+                        sort_value = 1;
+                        break;
+                    case GameUpdateManager::State::UpToDate:
+                        display = tr("Up to date");
+                        sort_value = 2;
+                        break;
+                    case GameUpdateManager::State::UpdateAvailable:
+                        display = tr("New: %1").arg(latest_display);
+                        sort_value = 4;
+                        break;
+                    case GameUpdateManager::State::LocalNewer:
+                        display = tr("Local version newer");
+                        sort_value = 3;
+                        break;
+                    case GameUpdateManager::State::NetworkError:
+                        display = tr("Connection error");
+                        break;
+                    case GameUpdateManager::State::Unknown:
+                        display = latest.numeric_version > 0 && !installed_comparable
+                                      ? tr("Installed version unknown")
+                                      : tr("No data");
+                        break;
+                    }
+
+                    status_item->setText(display);
+                    status_item->setData(sort_value, GameListItem::SortRole);
+                    if (latest.numeric_version > 0) {
+                        const QString installed = installed_comparable
+                                                      ? tr("Installed: %1 (v%2)")
+                                                            .arg(installed_display)
+                                                            .arg(installed_version)
+                                                      : tr("Installed: %1").arg(installed_display);
+                        const QString available =
+                            friendly.isEmpty()
+                                ? tr("Available: %1").arg(numeric_display)
+                                : tr("Available: %1 (v%2)")
+                                      .arg(friendly)
+                                      .arg(latest.numeric_version);
+                        QStringList tooltip{installed, available};
+                        if (!latest.release_date.isEmpty()) {
+                            tooltip.append(tr("Catalog date: %1").arg(latest.release_date));
+                        }
+                        tooltip.append(tr("Source: TitleDB"));
+                        status_item->setToolTip(tooltip.join(QLatin1Char{'\n'}));
+                    } else {
+                        status_item->setToolTip(QString{});
+                    }
+                }
+            }
+            if (name_item->hasChildren()) {
+                self(self, name_item);
+            }
+        }
+    };
+    update_children(update_children, item_model->invisibleRootItem());
+
+    if (tree_view->header()->sortIndicatorSection() == COLUMN_UPDATE_STATUS) {
+        item_model->sort(COLUMN_UPDATE_STATUS, tree_view->header()->sortIndicatorOrder());
+    }
+    if (!search_field->filterText().isEmpty()) {
+        OnTextChanged(search_field->filterText());
+    }
+}
+
+void GameList::OpenTrailerForItem(const QModelIndex& item) {
+    if (!item.isValid() || trailer_search_in_progress) {
+        return;
+    }
+
+    const auto selected = item.sibling(item.row(), COLUMN_NAME);
+    if (selected.data(GameListItem::TypeRole).value<GameListItemType>() !=
+        GameListItemType::Game) {
+        return;
+    }
+
+    QString game_name = selected.data(GameListItemPath::TitleRole).toString().trimmed();
+    if (game_name.isEmpty()) {
+        const QFileInfo file_info(selected.data(GameListItemPath::FullPathRole).toString());
+        game_name = file_info.completeBaseName().trimmed();
+    }
+    if (game_name.isEmpty()) {
+        return;
+    }
+
+    m_currentView->setCurrentIndex(selected);
+    trailer_search_in_progress = true;
+    const QPersistentModelIndex trailer_item{item.sibling(item.row(), COLUMN_TRAILER)};
+    item_model->setData(trailer_item, tr("Searching..."));
+
+    const auto credential_directory =
+        Common::FS::GetEdenPath(Common::FS::EdenPath::ConfigDir) / "youtube";
+    auto* trailer_watcher = new QFutureWatcher<WebService::YouTubeTrailerResult>(this);
+    connect(trailer_watcher, &QFutureWatcher<WebService::YouTubeTrailerResult>::finished, this,
+            [this, trailer_watcher, trailer_item, game_name] {
+                const auto result = trailer_watcher->result();
+                trailer_watcher->deleteLater();
+                trailer_search_in_progress = false;
+                if (trailer_item.isValid()) {
+                    const QString trailer_text =
+                        QStringLiteral("\u25B6 ") + tr("Watch Trailer");
+                    item_model->setData(trailer_item, trailer_text);
+                }
+
+                const QString search_query =
+                    game_name + QStringLiteral(" Nintendo Switch trailer");
+                const auto open_search_fallback = [search_query] {
+                    QByteArray url =
+                        QByteArrayLiteral("https://www.youtube.com/results?search_query=");
+                    url.append(QUrl::toPercentEncoding(search_query));
+                    if (!QDesktopServices::openUrl(QUrl::fromEncoded(url))) {
+                        LOG_WARNING(Frontend, "Failed to open trailer search URL");
+                    }
+                };
+
+                if (result.code != WebService::YouTubeTrailerResultCode::Success) {
+                    LOG_WARNING(Frontend, "Automatic trailer search failed with code {}",
+                                static_cast<int>(result.code));
+                    open_search_fallback();
+                    return;
+                }
+
+                const QString video_id = QString::fromStdString(result.video_id);
+                const QString trailer_title =
+                    QString::fromUtf8(result.title.data(),
+                                      static_cast<qsizetype>(result.title.size()));
+                if (!trailer_player) {
+                    trailer_player = new TrailerPlayerDialog(video_id, trailer_title,
+                                                             system.HIDCore(), main_window);
+                    connect(trailer_player, &TrailerPlayerDialog::PlaybackFailed, this,
+                            [](const QString& failed_video_id) {
+                                const QUrl direct_url{
+                                    QStringLiteral("https://www.youtube.com/watch?v=%1")
+                                        .arg(failed_video_id)};
+                                if (!QDesktopServices::openUrl(direct_url)) {
+                                    LOG_WARNING(Frontend, "Failed to open direct trailer URL");
+                                }
+                            });
+                } else {
+                    trailer_player->Play(video_id, trailer_title);
+                }
+                trailer_player->showFullScreen();
+            });
+    trailer_watcher->setFuture(QtConcurrent::run([credential_directory,
+                                                  name = game_name.toUtf8().toStdString()] {
+        return WebService::FindYouTubeTrailer(credential_directory, name);
+    }));
 }
 
 void GameList::ValidateEntry(const QModelIndex& item) {
-    const auto selected = item.sibling(item.row(), 0);
+    if (item.column() == COLUMN_CHEATS) {
+        OpenCheatsForItem(item);
+        return;
+    }
+    if (item.column() == COLUMN_TRAILER || item.column() == COLUMN_PLAYERS ||
+        item.column() == COLUMN_GENRE || item.column() == COLUMN_TAGS) {
+        return;
+    }
+
+    const auto selected = item.sibling(item.row(), COLUMN_NAME);
 
     switch (selected.data(GameListItem::TypeRole).value<GameListItemType>()) {
     case GameListItemType::Game: {
@@ -573,16 +1475,27 @@ void GameList::ValidateEntry(const QModelIndex& item) {
         if (!file_info.exists())
             return;
 
+        const auto title_id = selected.data(GameListItemPath::ProgramIdRole).toULongLong();
+        const QString game_name = selected.data(GameListItemPath::TitleRole).toString();
+        const u32 installed_version = static_cast<u32>(
+            selected.data(GameListItemPath::InstalledUpdateVersionRole).toUInt());
+        const bool installed_comparable =
+            selected.data(GameListItemPath::InstalledUpdateComparableRole).toBool();
+        game_update_manager->RequestRefresh(title_id, game_name, installed_version,
+                                            installed_comparable);
+
         if (file_info.isDir()) {
             const QDir dir{file_path};
             const QStringList matching_main = dir.entryList({QStringLiteral("main")}, QDir::Files);
             if (matching_main.size() == 1) {
-                emit GameChosen(dir.path() + QDir::separator() + matching_main[0]);
+                emit GameChosen(dir.path() + QDir::separator() + matching_main[0], title_id);
             }
             return;
         }
 
-        const auto title_id = selected.data(GameListItemPath::ProgramIdRole).toULongLong();
+        const QString build_id =
+            selected.data(GameListItemPath::BuildIdRole).toString().trimmed().toUpper();
+        cheat_availability_manager->RequestAvailability(title_id, build_id);
 
         // Users usually want to run a different game after closing one
         search_field->clear();
@@ -671,6 +1584,15 @@ void GameList::DonePopulating(const QStringList& watch_list) {
     }
     item_model->sort(tree_view->header()->sortIndicatorSection(),
                      tree_view->header()->sortIndicatorOrder());
+
+    if (history_baseline_pending) {
+        known_library_titles.unite(observed_library_titles);
+        history_baseline_pending = false;
+        history_dirty = true;
+    }
+    if (history_dirty) {
+        SaveLibraryHistory();
+    }
 
     emit PopulatingCompleted();
 }
@@ -987,11 +1909,23 @@ void GameList::changeEvent(QEvent* event) {
 
 void GameList::RetranslateUI() {
     item_model->setHeaderData(COLUMN_NAME, Qt::Horizontal, tr("Name"));
+    item_model->setHeaderData(COLUMN_TRAILER, Qt::Horizontal, tr("Trailer"));
+    item_model->setHeaderData(COLUMN_PLAYERS, Qt::Horizontal, tr("Players"));
+    item_model->setHeaderData(COLUMN_GENRE, Qt::Horizontal, tr("Genre"));
+    item_model->setHeaderData(COLUMN_TAGS, Qt::Horizontal, tr("Tags"));
+    item_model->setHeaderData(COLUMN_BUILD_ID, Qt::Horizontal, tr("Build ID"));
+    item_model->setHeaderData(COLUMN_CHEATS, Qt::Horizontal, tr("Cheats"));
     item_model->setHeaderData(COLUMN_COMPATIBILITY, Qt::Horizontal, tr("Compatibility"));
     item_model->setHeaderData(COLUMN_ADD_ONS, Qt::Horizontal, tr("Add-ons"));
+    item_model->setHeaderData(COLUMN_UPDATE_STATUS, Qt::Horizontal, tr("Update status"));
     item_model->setHeaderData(COLUMN_FILE_TYPE, Qt::Horizontal, tr("File type"));
     item_model->setHeaderData(COLUMN_SIZE, Qt::Horizontal, tr("Size"));
     item_model->setHeaderData(COLUMN_PLAY_TIME, Qt::Horizontal, tr("Play time"));
+    item_model->setHeaderData(COLUMN_LAST_PLAYED, Qt::Horizontal,
+                              QStringLiteral("Última partida"));
+    item_model->setHeaderData(COLUMN_DATE_ADDED, Qt::Horizontal,
+                              QStringLiteral("Agregado a Eden"));
+    item_model->setHeaderData(COLUMN_CREATED, Qt::Horizontal, QStringLiteral("Creado"));
 }
 
 void GameListSearchField::changeEvent(QEvent* event) {
@@ -1068,6 +2002,7 @@ void GameList::UpdateIconSize() {
 
 void GameList::PopulateAsync(QVector<UISettings::GameDir>& game_dirs) {
     m_currentView->setEnabled(false);
+    observed_library_titles.clear();
 
     // Update the columns in case UISettings has changed
     tree_view->setColumnHidden(COLUMN_ADD_ONS, !UISettings::values.show_add_ons);
@@ -1103,14 +2038,59 @@ void GameList::SaveInterfaceLayout() {
 void GameList::LoadInterfaceLayout() {
     auto* header = tree_view->header();
 
-    if (header->restoreState(UISettings::values.gamelist_header_state))
-        return;
+    if (!header->restoreState(UISettings::values.gamelist_header_state)) {
+        // We are using the name column to display icons and titles
+        // so make it as large as possible as default.
 
-    // We are using the name column to display icons and titles
-    // so make it as large as possible as default.
+        // TODO(crueter): width() is not initialized yet, so use a sane default value
+        header->resizeSection(COLUMN_NAME, 840);
+    }
 
-    // TODO(crueter): width() is not initialized yet, so use a sane default value
-    header->resizeSection(COLUMN_NAME, 840);
+    header->setSectionHidden(COLUMN_TRAILER, false);
+    header->setSectionHidden(COLUMN_PLAYERS, false);
+    header->setSectionHidden(COLUMN_GENRE, false);
+    header->setSectionHidden(COLUMN_TAGS, false);
+    header->setSectionHidden(COLUMN_BUILD_ID, false);
+    header->setSectionHidden(COLUMN_CHEATS, false);
+    header->setSectionHidden(COLUMN_UPDATE_STATUS, false);
+    header->setSectionHidden(COLUMN_LAST_PLAYED, false);
+    header->setSectionHidden(COLUMN_DATE_ADDED, false);
+    header->setSectionHidden(COLUMN_CREATED, false);
+
+    const std::array metadata_columns{
+        COLUMN_TRAILER,
+        COLUMN_PLAYERS,
+        COLUMN_GENRE,
+        COLUMN_TAGS,
+        COLUMN_BUILD_ID,
+        COLUMN_CHEATS,
+    };
+    for (std::size_t index = 0; index < metadata_columns.size(); ++index) {
+        const int logical_index = metadata_columns[index];
+        const int target_visual_index = static_cast<int>(index) + 1;
+        const int current_visual_index = header->visualIndex(logical_index);
+        if (current_visual_index != target_visual_index) {
+            header->moveSection(current_visual_index, target_visual_index);
+        }
+    }
+    const int update_status_visual_index = header->visualIndex(COLUMN_UPDATE_STATUS);
+    const int update_status_target_index = header->visualIndex(COLUMN_ADD_ONS) + 1;
+    if (update_status_visual_index != update_status_target_index) {
+        header->moveSection(update_status_visual_index, update_status_target_index);
+    }
+    MoveColumnAfter(header, COLUMN_LAST_PLAYED, COLUMN_PLAY_TIME);
+    MoveColumnAfter(header, COLUMN_DATE_ADDED, COLUMN_LAST_PLAYED);
+    MoveColumnAfter(header, COLUMN_CREATED, COLUMN_DATE_ADDED);
+    header->resizeSection(COLUMN_BUILD_ID,
+                          std::max(header->sectionSize(COLUMN_BUILD_ID), 145));
+    header->resizeSection(COLUMN_CHEATS, std::max(header->sectionSize(COLUMN_CHEATS), 120));
+    header->resizeSection(COLUMN_UPDATE_STATUS,
+                          std::max(header->sectionSize(COLUMN_UPDATE_STATUS), 135));
+    header->resizeSection(COLUMN_LAST_PLAYED,
+                          std::max(header->sectionSize(COLUMN_LAST_PLAYED), 125));
+    header->resizeSection(COLUMN_DATE_ADDED,
+                          std::max(header->sectionSize(COLUMN_DATE_ADDED), 135));
+    header->resizeSection(COLUMN_CREATED, std::max(header->sectionSize(COLUMN_CREATED), 110));
 }
 
 const QStringList GameList::supported_file_extensions = {

@@ -130,6 +130,13 @@ ResultStatus AppLoader_XCI::ReadRomFS(FileSys::VirtualFile& out_file) {
     return nca_loader->ReadRomFS(out_file);
 }
 
+ResultStatus AppLoader_XCI::ReadExeFS(FileSys::VirtualDir& out_dir) {
+    if (nca_loader == nullptr) {
+        return ResultStatus::ErrorNoExeFS;
+    }
+    return nca_loader->ReadExeFS(out_dir);
+}
+
 ResultStatus AppLoader_XCI::ReadUpdateRaw(FileSys::VirtualFile& out_file) {
     u64 program_id{};
     nca_loader->ReadProgramId(program_id);

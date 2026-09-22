@@ -273,16 +273,65 @@ void CheatEngine::Reload(std::vector<CheatEntry> reload_cheats) {
     is_pending_reload.exchange(true);
 }
 
+void CheatEngine::SetRuntimeMemoryFreezes(std::vector<RuntimeMemoryFreeze> freezes) {
+    std::scoped_lock lock{runtime_freeze_mutex};
+    runtime_freezes = std::move(freezes);
+}
+
+std::vector<RuntimeMemoryFreeze> CheatEngine::GetRuntimeMemoryFreezes() const {
+    std::scoped_lock lock{runtime_freeze_mutex};
+    return runtime_freezes;
+}
+
+CheatProcessMetadata CheatEngine::GetProcessMetadata() const {
+    return metadata;
+}
+
+void CheatEngine::ApplyRuntimeMemoryFreezes() {
+    std::vector<RuntimeMemoryFreeze> freezes;
+    {
+        std::scoped_lock lock{runtime_freeze_mutex};
+        freezes = runtime_freezes;
+    }
+    if (freezes.empty() || system.ApplicationProcess() == nullptr) {
+        return;
+    }
+
+    auto& page_table = system.ApplicationProcess()->GetPageTable();
+    auto& memory = system.ApplicationMemory();
+    for (const RuntimeMemoryFreeze& freeze : freezes) {
+        if (freeze.size == 0 || freeze.size > sizeof(freeze.value)) {
+            continue;
+        }
+        Kernel::KMemoryInfo memory_info{};
+        Kernel::Svc::PageInfo page_info{};
+        const Result query_result = page_table.QueryInfo(
+            std::addressof(memory_info), std::addressof(page_info), freeze.address);
+        if (R_FAILED(query_result)) {
+            continue;
+        }
+        const Kernel::Svc::MemoryInfo info = memory_info.GetSvcMemoryInfo();
+        const bool supported_state = info.state == Kernel::Svc::MemoryState::Normal ||
+                                     info.state == Kernel::Svc::MemoryState::CodeData ||
+                                     info.state == Kernel::Svc::MemoryState::AliasCodeData;
+        if (!supported_state || info.permission != Kernel::Svc::MemoryPermission::ReadWrite ||
+            freeze.address < info.base_address || info.size < freeze.size ||
+            freeze.address - info.base_address > info.size - freeze.size) {
+            continue;
+        }
+        memory.WriteBlock(freeze.address, &freeze.value, freeze.size);
+    }
+}
+
 void CheatEngine::FrameCallback(std::chrono::nanoseconds ns_late) {
     if (is_pending_reload.exchange(false)) {
         vm.LoadProgram(cheats);
     }
 
-    if (vm.GetProgramSize() == 0) {
-        return;
+    if (vm.GetProgramSize() != 0) {
+        vm.Execute(metadata);
     }
-
-    vm.Execute(metadata);
+    ApplyRuntimeMemoryFreezes();
 }
 
 } // namespace Core::Memory

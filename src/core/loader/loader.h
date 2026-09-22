@@ -282,6 +282,17 @@ public:
     }
 
     /**
+     * Get the unpatched ExeFS directory of the application.
+     *
+     * @param[out] out_dir Reference to store the ExeFS directory
+     *
+     * @return ResultStatus result of function
+     */
+    virtual ResultStatus ReadExeFS(FileSys::VirtualDir& out_dir) {
+        return ResultStatus::ErrorNotImplemented;
+    }
+
+    /**
      * Get the raw update of the application, should it come packed with one
      *
      * @param[out] out_file The raw update NCA file (Program-type)

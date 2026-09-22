@@ -7,6 +7,12 @@
 add_library(web_service STATIC
     announce_room_json.cpp
     announce_room_json.h
+    cheatslips.cpp
+    cheatslips.h
+    game_metadata.cpp
+    game_metadata.h
+    title_versions.cpp
+    title_versions.h
     verify_login.cpp
     verify_login.h
     verify_user_jwt.cpp
@@ -14,6 +20,8 @@ add_library(web_service STATIC
     web_backend.cpp
     web_backend.h
     web_result.h
+    youtube_trailer.cpp
+    youtube_trailer.h
 )
 
 create_target_directory_groups(web_service)

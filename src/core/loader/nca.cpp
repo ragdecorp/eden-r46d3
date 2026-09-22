@@ -217,6 +217,15 @@ ResultStatus AppLoader_NCA::ReadRomFS(FileSys::VirtualFile& dir) {
     return ResultStatus::Success;
 }
 
+ResultStatus AppLoader_NCA::ReadExeFS(FileSys::VirtualDir& out_dir) {
+    if (nca == nullptr || nca->GetStatus() != ResultStatus::Success) {
+        return ResultStatus::ErrorNotInitialized;
+    }
+
+    out_dir = nca->GetExeFS();
+    return out_dir != nullptr ? ResultStatus::Success : ResultStatus::ErrorNoExeFS;
+}
+
 ResultStatus AppLoader_NCA::ReadProgramId(u64& out_program_id) {
     if (nca == nullptr || nca->GetStatus() != ResultStatus::Success) {
         return ResultStatus::ErrorNotInitialized;

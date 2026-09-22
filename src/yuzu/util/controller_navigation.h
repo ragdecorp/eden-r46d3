@@ -3,6 +3,9 @@
 
 #pragma once
 
+#include <utility>
+#include <vector>
+
 #include <QKeyEvent>
 #include <QObject>
 
@@ -22,7 +25,11 @@ class ControllerNavigation : public QObject {
 
 public:
     explicit ControllerNavigation(Core::HID::HIDCore& hid_core, QWidget* parent = nullptr);
+    ControllerNavigation(Core::HID::HIDCore& hid_core, QWidget* parent, bool always_enabled);
     ~ControllerNavigation();
+
+    /// Maps an additional controller button to a Qt key for this navigation instance.
+    void MapButton(Settings::NativeButton::Values native_button, Qt::Key key);
 
     /// Disables events from the emulated controller
     void UnloadController();
@@ -40,10 +47,12 @@ private:
 
     Core::HID::ButtonValues button_values{};
     Core::HID::SticksValues stick_values{};
+    std::vector<std::pair<Settings::NativeButton::Values, Qt::Key>> custom_button_mappings;
 
     int player1_callback_key{};
     int handheld_callback_key{};
     bool is_controller_set{};
+    bool always_enabled{};
     mutable std::mutex mutex;
     Core::HID::EmulatedController* player1_controller;
     Core::HID::EmulatedController* handheld_controller;

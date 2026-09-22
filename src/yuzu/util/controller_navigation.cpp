@@ -6,7 +6,14 @@
 #include "hid_core/hid_core.h"
 #include "yuzu/util/controller_navigation.h"
 
-ControllerNavigation::ControllerNavigation(Core::HID::HIDCore& hid_core, QWidget* parent) {
+#include <QWidget>
+
+ControllerNavigation::ControllerNavigation(Core::HID::HIDCore& hid_core, QWidget* parent)
+    : ControllerNavigation{hid_core, parent, false} {}
+
+ControllerNavigation::ControllerNavigation(Core::HID::HIDCore& hid_core, QWidget* parent,
+                                           bool always_enabled_)
+    : QObject{parent}, always_enabled{always_enabled_} {
     player1_controller = hid_core.GetEmulatedController(Core::HID::NpadIdType::Player1);
     handheld_controller = hid_core.GetEmulatedController(Core::HID::NpadIdType::Handheld);
     Core::HID::ControllerUpdateCallback engine_callback{
@@ -20,6 +27,11 @@ ControllerNavigation::ControllerNavigation(Core::HID::HIDCore& hid_core, QWidget
 
 ControllerNavigation::~ControllerNavigation() {
     UnloadController();
+}
+
+void ControllerNavigation::MapButton(Settings::NativeButton::Values native_button, Qt::Key key) {
+    std::scoped_lock lock{mutex};
+    custom_button_mappings.emplace_back(native_button, key);
 }
 
 void ControllerNavigation::UnloadController() {
@@ -39,7 +51,7 @@ void ControllerNavigation::TriggerButton(Settings::NativeButton::Values native_b
 
 void ControllerNavigation::ControllerUpdateEvent(Core::HID::ControllerTriggerType type) {
     std::scoped_lock lock{mutex};
-    if (!Settings::values.controller_navigation) {
+    if (!always_enabled && !Settings::values.controller_navigation) {
         return;
     }
     if (type == Core::HID::ControllerTriggerType::Button) {
@@ -87,6 +99,10 @@ void ControllerNavigation::ControllerUpdateButton() {
         break;
     default:
         break;
+    }
+
+    for (const auto& [native_button, key] : custom_button_mappings) {
+        TriggerButton(native_button, key);
     }
 }
 

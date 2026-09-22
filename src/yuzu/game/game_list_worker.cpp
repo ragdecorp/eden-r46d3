@@ -4,6 +4,7 @@
 // SPDX-FileCopyrightText: Copyright 2018 yuzu Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <algorithm>
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -15,8 +16,10 @@
 #include <QFileInfo>
 #include <QSettings>
 
+#include "common/common_funcs.h"
 #include "common/fs/fs.h"
 #include "common/fs/path_util.h"
+#include "common/hex_util.h"
 #include "common/settings.h"
 #include "core/core.h"
 #include "core/file_sys/card_image.h"
@@ -30,6 +33,7 @@
 #include "core/file_sys/romfs.h"
 #include "core/file_sys/submission_package.h"
 #include "core/loader/loader.h"
+#include "core/loader/nso.h"
 #include "qt_common/config/uisettings.h"
 #include "yuzu/compatibility_list.h"
 #include "yuzu/game/game_list.h"
@@ -198,6 +202,79 @@ QString FormatPatchNameVersions(const FileSys::PatchManager& patch_manager,
     return out;
 }
 
+struct InstalledUpdateInfo {
+    u32 numeric_version{};
+    QString display_version{QStringLiteral("1.0.0")};
+    bool comparable{true};
+};
+
+InstalledUpdateInfo GetInstalledUpdateInfo(const FileSys::PatchManager& patch_manager,
+                                           Loader::AppLoader& loader) {
+    FileSys::VirtualFile update_raw;
+    loader.ReadUpdateRaw(update_raw);
+
+    const FileSys::Patch* selected_update = nullptr;
+    const auto patches = patch_manager.GetPatches(update_raw);
+    for (const auto& patch : patches) {
+        if (!patch.enabled || patch.type != FileSys::PatchType::Update) {
+            continue;
+        }
+
+        // External updates have priority in PatchManager. Otherwise retain the newest enabled
+        // installed entry when more than one storage location is present.
+        if (selected_update == nullptr ||
+            (patch.source == FileSys::PatchSource::External &&
+             selected_update->source != FileSys::PatchSource::External) ||
+            (patch.source == selected_update->source &&
+             patch.numeric_version > selected_update->numeric_version)) {
+            selected_update = &patch;
+        }
+    }
+
+    if (selected_update == nullptr) {
+        return {};
+    }
+
+    QString display = QString::fromStdString(selected_update->version).trimmed();
+    if (display.isEmpty()) {
+        display = QStringLiteral("?");
+    }
+    return {
+        .numeric_version = selected_update->numeric_version,
+        .display_version = std::move(display),
+        .comparable = selected_update->numeric_version != 0,
+    };
+}
+
+QString GetEffectiveBuildID(Loader::AppLoader& loader,
+                            const FileSys::PatchManager& patch_manager) {
+    FileSys::VirtualDir exefs;
+    if (loader.ReadExeFS(exefs) != Loader::ResultStatus::Success || exefs == nullptr) {
+        return {};
+    }
+
+    exefs = patch_manager.PatchExeFS(std::move(exefs), false);
+    if (exefs == nullptr) {
+        return {};
+    }
+
+    const auto main = exefs->GetFile("main");
+    if (main == nullptr || main->GetSize() < sizeof(Loader::NSOHeader)) {
+        return {};
+    }
+
+    Loader::NSOHeader header{};
+    if (main->ReadObject(&header) != sizeof(header) ||
+        header.magic != Common::MakeMagic('N', 'S', 'O', '0') ||
+        std::all_of(header.build_id.cbegin(), header.build_id.cend(),
+                    [](u8 value) { return value == 0; })) {
+        return {};
+    }
+
+    const std::string full_build_id = Common::HexToString(header.build_id);
+    return QString::fromStdString(full_build_id.substr(0, sizeof(u64) * 2));
+}
+
 QList<QStandardItem*> MakeGameListEntry(const std::string& path, const std::string& name,
                                         const std::size_t size, const std::vector<u8>& icon,
                                         Loader::AppLoader& loader, u64 program_id,
@@ -216,16 +293,50 @@ QList<QStandardItem*> MakeGameListEntry(const std::string& path, const std::stri
         fmt::format("{:016X}", patch.GetTitleID()), "pv.txt", [&patch, &loader] {
             return FormatPatchNameVersions(patch, loader, loader.IsRomFSUpdatable());
         });
+    const InstalledUpdateInfo installed_update = GetInstalledUpdateInfo(patch, loader);
 
     u64 play_time = play_time_manager.GetPlayTime(program_id);
-    return QList<QStandardItem*>{
+    auto* const name_item =
         new GameListItemPath(FormatGameName(path), icon, QString::fromStdString(name),
-                             file_type_string, program_id, play_time, patch_versions),
+                             file_type_string, program_id, play_time, patch_versions);
+    auto* const trailer_item =
+        new GameListItem(QStringLiteral("\u25B6 ") + GameList::tr("Watch Trailer"));
+    trailer_item->setData(name_item->data(GameListItem::SortRole), GameListItem::SortRole);
+    auto* const players_item = new GameListItem;
+    players_item->setData(0, GameListItem::SortRole);
+    auto* const genre_item = new GameListItem;
+    auto* const tags_item = new GameListItem;
+    const QString build_id = GetEffectiveBuildID(loader, patch);
+    auto* const build_id_item =
+        new GameListItem(build_id.isEmpty() ? QStringLiteral("?") : build_id);
+    build_id_item->setData(build_id, GameListItem::SortRole);
+    auto* const cheats_item = new GameListItem;
+    auto* const update_status_item = new GameListItem;
+    name_item->setData(build_id, GameListItemPath::BuildIdRole);
+    name_item->setData(installed_update.numeric_version,
+                       GameListItemPath::InstalledUpdateVersionRole);
+    name_item->setData(installed_update.display_version,
+                       GameListItemPath::InstalledUpdateDisplayRole);
+    name_item->setData(installed_update.comparable,
+                       GameListItemPath::InstalledUpdateComparableRole);
+
+    return QList<QStandardItem*>{
+        name_item,
         new GameListItem(file_type_string),
         new GameListItemSize(size),
         new GameListItemPlayTime(play_time),
         new GameListItem(patch_versions),
         new GameListItemCompat(compatibility),
+        trailer_item,
+        players_item,
+        genre_item,
+        tags_item,
+        build_id_item,
+        cheats_item,
+        update_status_item,
+        new GameListItem,
+        new GameListItem,
+        new GameListItem,
     };
 }
 } // Anonymous namespace

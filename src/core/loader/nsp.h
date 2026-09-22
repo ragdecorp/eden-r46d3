@@ -48,6 +48,7 @@ public:
     ResultStatus VerifyIntegrity(std::function<bool(size_t, size_t)> progress_callback) override;
 
     ResultStatus ReadRomFS(FileSys::VirtualFile& out_file) override;
+    ResultStatus ReadExeFS(FileSys::VirtualDir& out_dir) override;
     ResultStatus ReadUpdateRaw(FileSys::VirtualFile& out_file) override;
     ResultStatus ReadProgramId(u64& out_program_id) override;
     ResultStatus ReadProgramIds(std::vector<u64>& out_program_ids) override;

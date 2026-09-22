@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright 2026 Eden Emulator Project
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include <algorithm>
+
 // Qt on macOS doesn't define VMA shit
 #include <boost/algorithm/string/split.hpp>
 #include "common/settings.h"
@@ -34,6 +36,7 @@
 #include "set_play_time_dialog.h"
 #include "util/util.h"
 #include "vk_device_info.h"
+#include "yuzu/game/cheat_overlay_dialog.h"
 #include "yuzu/game/game_list.h"
 
 #include "applets/qt_amiibo_settings.h"
@@ -64,8 +67,10 @@
 #include <QActionGroup>
 #include <QCheckBox>
 #include <QClipboard>
+#include <QDateTime>
 #include <QDesktopServices>
 #include <QDir>
+#include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QGuiApplication>
@@ -73,6 +78,7 @@
 #include <QMimeData>
 #include <QPalette>
 #include <QProgressDialog>
+#include <QPointer>
 #include <QScreen>
 #include <QShortcut>
 #include <QStatusBar>
@@ -113,6 +119,7 @@ static FileSys::VirtualFile VfsDirectoryCreateFileWrapper(const FileSys::Virtual
 
 // Common //
 #include "common/fs/fs.h"
+#include "common/hex_util.h"
 #include "common/logging.h"
 #include "common/memory_detect.h"
 #include "common/scm_rev.h"
@@ -1449,6 +1456,8 @@ void MainWindow::InitializeHotkeys() {
     connect_shortcut(QStringLiteral("Audio Mute/Unmute"), &MainWindow::OnMute);
     connect_shortcut(QStringLiteral("Audio Volume Down"), &MainWindow::OnDecreaseVolume);
     connect_shortcut(QStringLiteral("Audio Volume Up"), &MainWindow::OnIncreaseVolume);
+    connect_shortcut(QStringLiteral("Toggle Cheat Overlay"),
+                     &MainWindow::OnToggleCheatOverlay);
 
     connect_shortcut(QStringLiteral("Toggle Framerate Limit"), [this] {
         Settings::ToggleStandardMode();
@@ -3185,6 +3194,150 @@ void MainWindow::OnPauseContinueGame() {
     }
 }
 
+void MainWindow::OnToggleCheatOverlay() {
+    if (!emulation_running || emu_thread == nullptr || !QtCommon::system->IsPoweredOn() ||
+        cheat_overlay_pending || cheat_overlay_active) {
+        return;
+    }
+
+    // A renderer screenshot needs one more frame. If the game was already paused, open the
+    // overlay immediately and simply omit the preview for this invocation.
+    if (!emu_thread->IsRunning()) {
+        ShowCheatOverlay(QString{});
+        return;
+    }
+
+    const u64 program_id = QtCommon::system->GetApplicationProcessProgramID();
+    const QString title_id =
+        QStringLiteral("%1").arg(program_id, 16, 16, QLatin1Char{'0'}).toUpper();
+    const auto& raw_build_id = QtCommon::system->GetApplicationProcessBuildID();
+    const std::string full_build_id = Common::HexToString(raw_build_id);
+    const bool has_build_id =
+        std::any_of(raw_build_id.cbegin(), raw_build_id.cend(), [](u8 value) { return value != 0; });
+    const QString build_id = has_build_id ? QString::fromStdString(full_build_id.substr(0, 16))
+                                          : QStringLiteral("unknown");
+
+    const std::filesystem::path screenshot_directory =
+        Common::FS::GetEdenPath(Common::FS::EdenPath::EdenDir) / "cheats_studio" /
+        title_id.toStdString() / build_id.toStdString() / "screenshots";
+    if (!Common::FS::CreateDirs(screenshot_directory)) {
+        ShowCheatOverlay(QString{});
+        return;
+    }
+
+#ifdef _WIN32
+    const QString screenshot_directory_qt =
+        QString::fromStdWString(screenshot_directory.wstring());
+#else
+    const QString screenshot_directory_qt =
+        QString::fromStdString(screenshot_directory.string());
+#endif
+    const QString timestamp =
+        QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd_hh-mm-ss-zzz"));
+    const QString screenshot_path =
+        QStringLiteral("%1/%2.png").arg(screenshot_directory_qt, timestamp);
+
+    cheat_overlay_pending = true;
+    const QPointer<MainWindow> guarded_window{this};
+    const bool screenshot_requested = render_window->CaptureScreenshot(
+        screenshot_path, [guarded_window, screenshot_path, program_id](bool saved) {
+            if (guarded_window.isNull()) {
+                return;
+            }
+            QMetaObject::invokeMethod(
+                guarded_window.data(),
+                [guarded_window, screenshot_path, program_id, saved] {
+                    if (guarded_window.isNull()) {
+                        return;
+                    }
+                    if (!guarded_window->cheat_overlay_pending) {
+                        return;
+                    }
+                    guarded_window->cheat_overlay_pending = false;
+                    if (!guarded_window->emulation_running ||
+                        !QtCommon::system->IsPoweredOn() ||
+                        QtCommon::system->GetApplicationProcessProgramID() != program_id) {
+                        return;
+                    }
+
+                    if (saved) {
+                        QDir screenshot_dir{QFileInfo{screenshot_path}.absolutePath()};
+                        const QFileInfoList captures = screenshot_dir.entryInfoList(
+                            {QStringLiteral("*.png")}, QDir::Files, QDir::Time);
+                        constexpr qsizetype MaxCaptures = 20;
+                        for (qsizetype index = MaxCaptures; index < captures.size(); ++index) {
+                            QFile::remove(captures.at(index).absoluteFilePath());
+                        }
+                    }
+                    guarded_window->ShowCheatOverlay(saved ? screenshot_path : QString{});
+                },
+                Qt::QueuedConnection);
+        });
+
+    if (!screenshot_requested) {
+        cheat_overlay_pending = false;
+        ShowCheatOverlay(QString{});
+        return;
+    }
+
+    // Never leave the shortcut blocked if the renderer cannot complete a screenshot request.
+    QTimer::singleShot(2000, this, [guarded_window] {
+        if (guarded_window.isNull() || !guarded_window->cheat_overlay_pending) {
+            return;
+        }
+        guarded_window->cheat_overlay_pending = false;
+        guarded_window->ShowCheatOverlay(QString{});
+    });
+}
+
+void MainWindow::ShowCheatOverlay(const QString& screenshot_path) {
+    if (!emulation_running || emu_thread == nullptr || !QtCommon::system->IsPoweredOn() ||
+        cheat_overlay_active) {
+        return;
+    }
+
+    cheat_overlay_active = true;
+    SCOPE_EXIT {
+        cheat_overlay_active = false;
+    };
+
+    const bool resume_after_close = emu_thread->IsRunning();
+    if (resume_after_close) {
+        LOG_INFO(Frontend, "Cheat overlay pausing emulation");
+        OnPauseGame();
+    }
+    SCOPE_EXIT {
+        if (resume_after_close && emulation_running && QtCommon::system->IsPoweredOn()) {
+            LOG_INFO(Frontend, "Cheat overlay resuming emulation");
+            OnStartGame();
+            LOG_INFO(Frontend, "Cheat overlay emulation resumed");
+        }
+    };
+
+    const u64 program_id = QtCommon::system->GetApplicationProcessProgramID();
+    const QString title_id =
+        QStringLiteral("%1").arg(program_id, 16, 16, QLatin1Char{'0'}).toUpper();
+
+    const auto& raw_build_id = QtCommon::system->GetApplicationProcessBuildID();
+    const std::string full_build_id = Common::HexToString(raw_build_id);
+    const bool has_build_id =
+        std::any_of(raw_build_id.cbegin(), raw_build_id.cend(), [](u8 value) { return value != 0; });
+    const QString build_id = has_build_id
+                                 ? QString::fromStdString(full_build_id.substr(0, 16))
+                                 : QStringLiteral("-");
+
+    QString game_name = QFileInfo{current_game_path}.completeBaseName().trimmed();
+    if (game_name.isEmpty()) {
+        game_name = tr("Unknown game");
+    }
+
+    CheatOverlayDialog dialog{render_window, *QtCommon::system, game_name, title_id, build_id,
+                              screenshot_path};
+    LOG_INFO(Frontend, "Cheat overlay entering modal event loop");
+    dialog.exec();
+    LOG_INFO(Frontend, "Cheat overlay modal event loop finished");
+}
+
 void MainWindow::OnStopGame() {
     if (ConfirmShutdownGame()) {
         play_time_manager->Stop();
@@ -3223,6 +3376,8 @@ bool MainWindow::ConfirmShutdownGame() {
 
 void MainWindow::OnLoadComplete() {
     loading_screen->OnLoadComplete();
+
+    game_list->RecordGameStarted(QtCommon::system->GetApplicationProcessProgramID());
 
     perf_overlay = new PerformanceOverlay(this);
     perf_overlay->setVisible(ui->action_Show_Performance_Overlay->isChecked());

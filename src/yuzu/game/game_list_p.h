@@ -73,6 +73,10 @@ public:
     static constexpr int FullPathRole = SortRole + 2;
     static constexpr int ProgramIdRole = SortRole + 3;
     static constexpr int FileTypeRole = SortRole + 4;
+    static constexpr int BuildIdRole = SortRole + 5;
+    static constexpr int InstalledUpdateVersionRole = SortRole + 6;
+    static constexpr int InstalledUpdateDisplayRole = SortRole + 7;
+    static constexpr int InstalledUpdateComparableRole = SortRole + 8;
 
     GameListItemPath() = default;
     GameListItemPath(const QString& game_path, const std::vector<u8>& picture_data,

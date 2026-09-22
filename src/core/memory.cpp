@@ -296,6 +296,28 @@ struct Memory::Impl {
         });
     }
 
+    bool ReadBlockCpuOnly(const Common::ProcessAddress addr, void* buffer,
+                          const std::size_t size) {
+        bool complete = true;
+        const bool user_accessible = WalkBlock(
+            addr, size,
+            [&](const std::size_t offset, const std::size_t copy_amount,
+                const Common::ProcessAddress current_vaddr) {
+                complete = false;
+                std::memset(reinterpret_cast<u8*>(buffer) + offset, 0, copy_amount);
+            },
+            [&](const std::size_t offset, const std::size_t copy_amount,
+                const u8* const ptr) {
+                std::memcpy(reinterpret_cast<u8*>(buffer) + offset, ptr, copy_amount);
+            },
+            [&](const Common::ProcessAddress current_vaddr, const std::size_t offset,
+                const std::size_t copy_amount, const u8* const ptr) {
+                complete = false;
+                std::memset(reinterpret_cast<u8*>(buffer) + offset, 0, copy_amount);
+            });
+        return user_accessible && complete;
+    }
+
     [[nodiscard]] inline const u8* GetSpan(const VAddr addr, const std::size_t size) const noexcept {
         return (current_page_table->entries[addr >> YUZU_PAGEBITS].block == current_page_table->entries[(addr + size) >> YUZU_PAGEBITS].block) ? GetPointerSilent(addr) : nullptr;
     }
@@ -905,6 +927,11 @@ bool Memory::ReadBlock(const Common::ProcessAddress src_addr, void* dest_buffer,
 bool Memory::ReadBlockUnsafe(const Common::ProcessAddress src_addr, void* dest_buffer,
                              const std::size_t size) {
     return impl->ReadBlockImpl(src_addr, dest_buffer, size, true);
+}
+
+bool Memory::ReadBlockCpuOnly(const Common::ProcessAddress src_addr, void* dest_buffer,
+                              const std::size_t size) {
+    return impl->ReadBlockCpuOnly(src_addr, dest_buffer, size);
 }
 
 const u8* Memory::GetSpan(const VAddr src_addr, const std::size_t size) const {
