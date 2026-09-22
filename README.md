@@ -39,7 +39,7 @@ El orden visual puede cambiar si el usuario mueve o restaura columnas.
 | **Agregado a Eden** | Registra cuándo un Title ID nuevo aparece por primera vez en la biblioteca. La instalación inicial crea una línea base y deja en blanco los juegos que ya existían, para no inventar fechas. |
 | **Creado** | Fecha real de lanzamiento consultada en línea por Title ID; no utiliza la fecha del archivo NSP/XCI. |
 | **Complementos** | Muestra la actualización y DLC instalados. Conserva la información local de Eden. |
-| **Actualización** | Compara la versión instalada con el catálogo en línea. Estados principales: `Al día`, `Nueva: vNNNN | x.y.z`, `Versión local más nueva`, `Sin datos` y errores de conexión. Al colocar el cursor muestra versión instalada, disponible, fecha del catálogo y fuente. |
+| **Actualización** | Compara la versión instalada con el catálogo en línea. Estados principales: `Al día`, Nueva: vNNNN &#124; x.y.z, `Versión local más nueva`, `Sin datos` y errores de conexión. Al colocar el cursor muestra versión instalada, disponible, fecha del catálogo y fuente. |
 | **Compatibilidad** | Estado de compatibilidad de Eden cuando está habilitado. Función original. |
 
 ### Consultas en segundo plano y caché
